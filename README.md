@@ -1,9 +1,9 @@
 # GTIN Gleam
 
-[![Package Version](https://img.shields.io/hexpm/v/gtin)](https://hex.pm/packages/gtin)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/gtin/)
+[![Package Version](https://img.shields.io/hexpm/v/gtin)](https://hex.pm/packages/gl_gtin)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/gl_gtin/)
 [![Packagist](https://img.shields.io/packagist/l/doctrine/orm.svg)](LICENSE.md)
-[![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/kickinespresso/gtin/issues)
+[![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/kickinespresso/gl_gtin/issues)
 
 A production-ready Gleam library for validating and generating GTIN (Global Trade Item Number) codes according to the GS1 specification. This library provides type-safe, idiomatic Gleam implementations with feature parity to the Elixir [ex_gtin](https://github.com/kickinespresso/ex_gtin) library.
 
