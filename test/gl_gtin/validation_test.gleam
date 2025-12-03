@@ -1,7 +1,7 @@
 import gleam/list
 import gleam/string
 import gleeunit/should
-import gtin/validation
+import gl_gtin/validation
 
 // Valid GTINs Pass Validation
 //

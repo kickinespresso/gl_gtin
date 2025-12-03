@@ -1,6 +1,6 @@
 import gleam/list
 import gleeunit/should
-import gtin/internal/utils
+import gl_gtin/internal/utils
 
 // Tests for last_digit function
 pub fn last_digit_single_element_test() {

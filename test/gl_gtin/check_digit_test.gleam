@@ -1,6 +1,6 @@
 import gleam/string
 import gleeunit/should
-import gtin/check_digit
+import gl_gtin/check_digit
 
 // Check Digit Algorithm Correctness
 //

@@ -6,8 +6,8 @@
 import gleam/list
 import gleam/result
 import gleam/string
-import gtin/check_digit
-import gtin/internal/utils
+import gl_gtin/check_digit
+import gl_gtin/internal/utils
 
 /// GTIN format type
 pub type GtinFormat {

@@ -7,7 +7,7 @@ import gleam/int
 import gleam/list
 import gleam/result
 import gleam/string
-import gtin/internal/utils
+import gl_gtin/internal/utils
 
 /// Error type for check digit operations
 pub type CheckDigitError {

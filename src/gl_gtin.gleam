@@ -7,31 +7,31 @@
 //// # Quick Start
 ////
 //// ```gleam
-//// import gtin
+//// import gl_gtin
 ////
 //// // Validate a GTIN code
-//// case gtin.validate("6291041500213") {
+//// case gl_gtin.validate("6291041500213") {
 ////   Ok(format) -> io.println("Valid GTIN-13")
 ////   Error(err) -> io.println("Invalid GTIN")
 //// }
 ////
 //// // Generate a GTIN with check digit
-//// case gtin.generate("629104150021") {
+//// case gl_gtin.generate("629104150021") {
 ////   Ok(complete_gtin) -> io.println(complete_gtin)
 ////   Error(_) -> io.println("Generation failed")
 //// }
 ////
 //// // Look up country from GS1 prefix
-//// case gtin.gs1_prefix_country("6291041500213") {
+//// case gl_gtin.gs1_prefix_country("6291041500213") {
 ////   Ok(country) -> io.println("Country: " <> country)
 ////   Error(_) -> io.println("Prefix not found")
 //// }
 //// ```
 
 import gleam/result
-import gtin/check_digit
-import gtin/gs1_prefix
-import gtin/validation
+import gl_gtin/check_digit
+import gl_gtin/gs1_prefix
+import gl_gtin/validation
 
 /// Supported GTIN formats based on digit count.
 pub type GtinFormat {

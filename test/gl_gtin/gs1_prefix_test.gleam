@@ -1,5 +1,5 @@
 import gleeunit/should
-import gtin/gs1_prefix
+import gl_gtin/gs1_prefix
 
 // Known Prefixes Return Country
 //

@@ -1,6 +1,6 @@
-# GTIN Gleam
+# GL GTIN
 
-[![Package Version](https://img.shields.io/hexpm/v/gtin)](https://hex.pm/packages/gl_gtin)
+[![Package Version](https://img.shields.io/hexpm/v/gl_gtin)](https://hex.pm/packages/gl_gtin)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/gl_gtin/)
 [![Packagist](https://img.shields.io/packagist/l/doctrine/orm.svg)](LICENSE.md)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/kickinespresso/gl_gtin/issues)
@@ -20,7 +20,7 @@ A production-ready Gleam library for validating and generating GTIN (Global Trad
 ## Installation
 
 ```sh
-gleam add gtin
+gleam add gl_gtin
 ```
 
 ## Quick Start
@@ -28,11 +28,11 @@ gleam add gtin
 ### Validating a GTIN
 
 ```gleam
-import gtin
+import gl_gtin
 
 pub fn main() {
   // Validate a GTIN-13
-  case gtin.validate("6291041500213") {
+  case gl_gtin.validate("6291041500213") {
     Ok(format) -> io.println("Valid GTIN: " <> format_to_string(format))
     Error(err) -> io.println("Invalid GTIN: " <> error_to_string(err))
   }
@@ -42,11 +42,11 @@ pub fn main() {
 ### Generating a GTIN with Check Digit
 
 ```gleam
-import gtin
+import gl_gtin
 
 pub fn main() {
   // Generate a GTIN-13 from 12 digits
-  case gtin.generate("629104150021") {
+  case gl_gtin.generate("629104150021") {
     Ok(complete_gtin) -> io.println("Generated: " <> complete_gtin)
     Error(err) -> io.println("Error: " <> error_to_string(err))
   }
@@ -56,11 +56,11 @@ pub fn main() {
 ### Looking Up Country of Origin
 
 ```gleam
-import gtin
+import gl_gtin
 
 pub fn main() {
   // Find the country for a GTIN
-  case gtin.gs1_prefix_country("6291041500213") {
+  case gl_gtin.gs1_prefix_country("6291041500213") {
     Ok(country) -> io.println("Country: " <> country)
     Error(_) -> io.println("Country not found")
   }
@@ -70,11 +70,11 @@ pub fn main() {
 ### Normalizing GTIN-13 to GTIN-14
 
 ```gleam
-import gtin
+import gl_gtin
 
 pub fn main() {
   // Convert GTIN-13 to GTIN-14
-  case gtin.normalize("6291041500213") {
+  case gl_gtin.normalize("6291041500213") {
     Ok(gtin14) -> io.println("GTIN-14: " <> gtin14)
     Error(err) -> io.println("Error: " <> error_to_string(err))
   }
@@ -107,12 +107,12 @@ pub type GtinError {
 All functions return `Result(value, GtinError)`, allowing you to handle errors gracefully:
 
 ```gleam
-import gtin
+import gl_gtin
 import result
 
 pub fn validate_and_lookup(code: String) -> Result(String, GtinError) {
-  use _format <- result.try(gtin.validate(code))
-  gtin.gs1_prefix_country(code)
+  use _format <- result.try(gl_gtin.validate(code))
+  gl_gtin.gs1_prefix_country(code)
 }
 ```
 
@@ -130,7 +130,7 @@ pub fn validate_and_lookup(code: String) -> Result(String, GtinError) {
 
 ## Documentation
 
-Full API documentation is available at [hexdocs.pm/gtin](https://hexdocs.pm/gtin/).
+Full API documentation is available at [hexdocs.pm/gl_gtin](https://hexdocs.pm/gl_gtin/).
 
 Generate local documentation with:
 
@@ -169,21 +169,23 @@ gleam format
 ### Project Structure
 
 ```text
-gtin/
+gl_gtin/
 ├── src/
-│   ├── gtin.gleam              # Main public API
-│   ├── gtin/
+│   ├── gl_gtin.gleam           # Main public API
+│   ├── gl_gtin/
 │   │   ├── validation.gleam    # Core validation logic
 │   │   ├── check_digit.gleam   # Check digit calculation
 │   │   ├── gs1_prefix.gleam    # GS1 country prefix lookup
 │   │   └── internal/
 │   │       └── utils.gleam     # Internal utility functions
 └── test/
-    ├── gtin_test.gleam         # Integration tests
-    └── gtin/
+    ├── gl_gtin_test.gleam      # Integration tests
+    └── gl_gtin/
         ├── validation_test.gleam
         ├── check_digit_test.gleam
-        └── gs1_prefix_test.gleam
+        ├── gs1_prefix_test.gleam
+        └── internal/
+            └── utils_test.gleam
 ```
 
 ## GS1 Specification Compliance
