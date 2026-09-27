@@ -165,7 +165,7 @@ pub fn gs1_prefix_country(code: String) -> Result(String, GtinError) {
 ///
 /// ```gleam
 /// normalize("6291041500213")
-/// // -> Ok("16291041500214")
+/// // -> Ok("16291041500210")
 ///
 /// normalize("012345678905")
 /// // -> Error(InvalidFormat)

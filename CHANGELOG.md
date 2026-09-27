@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-09-26
+
+Bugfix release for the GS1 prefix and normalization subsystem. The prefix
+lookup corrections change public output for many inputs, so this is a breaking
+change under Semantic Versioning (Issues 1-8).
+
+### Changed
+
+- **BREAKING** (Issues 1, 2): GS1 prefix lookup now uses GS1's real 3-digit
+  allocation ranges (ported from `ex_gtin`) instead of the previous 2-digit
+  "decade" table. The country/region returned by `gs1_prefix_country` /
+  `gs1_prefix.lookup` changes for many inputs (e.g. `871..` now resolves to
+  `GS1 Netherlands`, `690..` to `GS1 China`, `620..` to `GS1 Tanzania`).
+- **BREAKING** (Issue 2): prefix lookup is now format-aware. GTIN-12 gets its
+  implicit leading zero prepended and GTIN-14 drops its indicator digit before
+  the 3-digit prefix is read, so normalized GTIN-14 codes resolve correctly
+  (e.g. Emirates `16291041500210` -> `GS1 Emirates`).
+- **Changed** (Issue 7): README capability claims corrected to match actual
+  behavior; the GTIN-8 GS1-8 limitation is now documented and ISBN-10 handling
+  is noted as out of scope. (Issue 8: `lookup/1` length leniency is documented
+  in the module docs.)
+
+### Fixed
+
+- **Fixed** (Issue 4): `normalize/1` now trims once up front and uses the
+  trimmed value throughout, so a whitespace-padded valid GTIN-13 normalizes
+  correctly (e.g. `" 6291041500213 "` -> `Ok("16291041500210")`).
+- **Fixed** (Issue 5): corrected the documented `normalize("6291041500213")`
+  example from the wrong `Ok("16291041500214")` to `Ok("16291041500210")` in
+  the README, `gl_gtin.gleam`, and `validation.gleam`.
+- **Fixed** (Issues 3, 6): reworked the prefix test suite to assert GS1's real
+  3-digit ranges (with negative cases for unassigned ranges), and replaced the
+  assertion-free `case ... -> Nil` "property" tests with direct assertions so
+  the suite can fail when behavior regresses.
+
 ## [2.0.0] - 2025-12-03
 
 ### Changed

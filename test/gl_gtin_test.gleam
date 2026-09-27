@@ -92,62 +92,50 @@ pub fn property_error_messages_include_context_test() {
 }
 
 // Specific Error Types for Different Failures
+//
+// Every case below asserts the EXACT expected error via should.equal so the
+// test can fail on regression. There are no assertion-free catch-alls.
 pub fn property_specific_error_types_test() {
-  // Test InvalidCheckDigit - valid length but wrong check digit
-  let invalid_check_digit_cases = [
-    "12345671",
-    // GTIN-8 with wrong check digit
-    "012345678906",
-    // GTIN-12 with wrong check digit
-    "6291041500214",
-    // GTIN-13 with wrong check digit
-    "12345678901232",
-    // GTIN-14 with wrong check digit
-  ]
+  // InvalidCheckDigit - valid length and all digits, but wrong check digit.
+  // GTIN-8 with wrong check digit
+  gl_gtin.validate("12345671")
+  |> should.equal(Error(gl_gtin.InvalidCheckDigit))
+  // GTIN-12 with wrong check digit
+  gl_gtin.validate("012345678906")
+  |> should.equal(Error(gl_gtin.InvalidCheckDigit))
+  // GTIN-13 with wrong check digit
+  gl_gtin.validate("6291041500214")
+  |> should.equal(Error(gl_gtin.InvalidCheckDigit))
+  // GTIN-14 with wrong check digit
+  gl_gtin.validate("12345678901232")
+  |> should.equal(Error(gl_gtin.InvalidCheckDigit))
 
-  list.each(invalid_check_digit_cases, fn(code) {
-    let result = gl_gtin.validate(code)
-    case result {
-      Error(gl_gtin.InvalidCheckDigit) -> Nil
-      _ -> {
-        // Some might fail for other reasons, which is ok
-        Nil
-      }
-    }
-  })
+  // InvalidCharacters - contains non-numeric characters. Character parsing
+  // happens before the length check, so internal spaces, dashes, and letters
+  // all surface as InvalidCharacters.
+  gl_gtin.validate("629104150021A")
+  |> should.equal(Error(gl_gtin.InvalidCharacters))
+  gl_gtin.validate("629 104 150 021")
+  |> should.equal(Error(gl_gtin.InvalidCharacters))
+  gl_gtin.validate("629-104-150-021")
+  |> should.equal(Error(gl_gtin.InvalidCharacters))
+  gl_gtin.validate("ABCDEFGHIJKLM")
+  |> should.equal(Error(gl_gtin.InvalidCharacters))
 
-  // Test InvalidCharacters - contains non-numeric characters
-  let invalid_char_cases = [
-    "629104150021A",
-    "629 104 150 021",
-    "629-104-150-021",
-    "ABCDEFGHIJKLM",
-  ]
+  // InvalidLength - wrong number of digits, reported with the actual length.
+  gl_gtin.validate("123")
+  |> should.equal(Error(gl_gtin.InvalidLength(3)))
+  gl_gtin.validate("12345")
+  |> should.equal(Error(gl_gtin.InvalidLength(5)))
+  gl_gtin.validate("123456789012345")
+  |> should.equal(Error(gl_gtin.InvalidLength(15)))
 
-  list.each(invalid_char_cases, fn(code) {
-    let result = gl_gtin.validate(code)
-    case result {
-      Error(gl_gtin.InvalidCharacters) -> Nil
-      _ -> Nil
-    }
-  })
+  // NoGs1PrefixFound - a valid-shaped 13-digit code whose 3-digit prefix (150)
+  // falls in the unassigned 140-199 gap of the GS1 region table.
+  gl_gtin.gs1_prefix_country("1501234567890")
+  |> should.equal(Error(gl_gtin.NoGs1PrefixFound))
 
-  // Test InvalidLength - wrong number of digits
-  let invalid_length_cases = ["123", "12345", "123456789012345"]
-
-  list.each(invalid_length_cases, fn(code) {
-    let result = gl_gtin.validate(code)
-    case result {
-      Error(gl_gtin.InvalidLength(_)) -> Nil
-      _ -> Nil
-    }
-  })
-
-  // Test NoGs1PrefixFound - valid GTIN but unknown prefix
-  // Using a code with prefix that doesn't exist in the database
-  let _result_prefix = gl_gtin.gs1_prefix_country("111111111111")
-
-  // Test InvalidFormat - normalization on non-GTIN-13
+  // InvalidFormat - normalization on non-GTIN-13
   let assert Error(gl_gtin.InvalidFormat) = gl_gtin.normalize("12345670")
   let assert Error(gl_gtin.InvalidFormat) = gl_gtin.normalize("012345678905")
 }
@@ -307,6 +295,16 @@ pub fn readme_example_normalize_test() {
   // Verify it's a valid GTIN-14
   let assert Ok(format) = gl_gtin.validate(normalized)
   format |> should.equal(gl_gtin.Gtin14)
+}
+
+// Normalize: exact corrected value
+//
+// Pin the exact GTIN-14 that normalize produces for the documented Emirates
+// GTIN-13 example. The correct value is "16291041500210" (not the previously
+// documented "...214"), so this guards the corrected output contract in CI.
+pub fn normalize_exact_value_test() {
+  gl_gtin.normalize("6291041500213")
+  |> should.equal(Ok("16291041500210"))
 }
 
 // Opaque Type: from_string with invalid input

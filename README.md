@@ -5,13 +5,13 @@
 [![Packagist](https://img.shields.io/packagist/l/doctrine/orm.svg)](LICENSE.md)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/kickinespresso/gl_gtin/issues)
 
-A production-ready Gleam library for validating and generating GTIN (Global Trade Item Number) codes according to the GS1 specification. This library provides type-safe, idiomatic Gleam implementations with feature parity to the Elixir [ex_gtin](https://github.com/kickinespresso/ex_gtin) library.
+A production-ready Gleam library for validating and generating GTIN (Global Trade Item Number) codes according to the GS1 specification. This library provides type-safe, idiomatic Gleam implementations. Its GS1 3-digit prefix allocation table is ported from the Elixir [ex_gtin](https://github.com/kickinespresso/ex_gtin) library; it is inspired by ex_gtin rather than a full feature-parity port (see [Limitations](#limitations)).
 
 ## Features
 
 - **GTIN Validation**: Validate GTIN-8, GTIN-12, GTIN-13, and GTIN-14 codes
 - **Check Digit Generation**: Generate complete GTINs with calculated check digits using the GS1 Modulo 10 algorithm
-- **GS1 Country Prefix Lookup**: Identify the country of origin from GTIN codes (100+ countries supported)
+- **GS1 Country/Region Prefix Lookup**: Identify the country or region of origin using GS1's real 3-digit allocation ranges (a broad set of countries and regions, plus ISBN/ISSN and restricted-circulation/coupon ranges)
 - **GTIN Normalization**: Convert GTIN-13 codes to GTIN-14 format for logistics applications
 - **Type-Safe API**: Leverage Gleam's strong type system to prevent invalid GTINs
 - **Comprehensive Error Handling**: Specific error types for different failure modes
@@ -80,6 +80,13 @@ pub fn main() {
   }
 }
 ```
+
+## Limitations
+
+A few behaviors are worth calling out so the library's scope is clear:
+
+- **GTIN-8 prefix lookup**: A GTIN-8 is used as-is for the prefix basis, so it reads its own leading digits against the GTIN-13 range table. This library does **not** implement true GS1-8 prefix semantics; the result for a GTIN-8 reflects the GTIN-13 table lookup rather than a dedicated GS1-8 allocation.
+- **ISBN-10 handling**: `normalize` does not perform any ISBN-10 handling. This is considered out of scope (optional future work).
 
 ## Supported GTIN Formats
 

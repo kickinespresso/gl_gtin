@@ -199,27 +199,28 @@ pub fn validate(code: String) -> Result(GtinFormat, ValidationError) {
 ///
 /// ```gleam
 /// normalize("6291041500213")
-/// // -> Ok("16291041500214")
+/// // -> Ok("16291041500210")
 ///
 /// normalize("012345678905")
 /// // -> Error(InvalidFormat)
 /// ```
 pub fn normalize(code: String) -> Result(String, ValidationError) {
+  // Trim once up front and validate the trimmed value.
+  let trimmed = string.trim(code)
+
   // First validate that it's a valid GTIN
-  use format <- result.try(validate(code))
+  use format <- result.try(validate(trimmed))
 
   // Check that it's GTIN-13
   case format {
     Gtin13 -> {
-      // Prepend "1" to the code (without the check digit)
-      let without_check = string.slice(code, 0, string.length(code) - 1)
+      // Prepend "1" to the trimmed code (without the check digit)
+      let without_check = string.slice(trimmed, 0, string.length(trimmed) - 1)
       let with_indicator = "1" <> without_check
 
-      // Generate the new check digit
-      case check_digit.generate(with_indicator) {
-        Ok(gtin_14) -> Ok(gtin_14)
-        Error(_) -> Error(InvalidFormat)
-      }
+      // Generate the new check digit, preserving the existing error surface
+      check_digit.generate(with_indicator)
+      |> result.map_error(fn(_) { InvalidFormat })
     }
     _ -> Error(InvalidFormat)
   }
