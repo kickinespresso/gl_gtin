@@ -5,6 +5,7 @@
 
 import gl_gtin/check_digit
 import gl_gtin/internal/utils
+import gleam/int
 import gleam/list
 import gleam/result
 import gleam/string
@@ -182,10 +183,195 @@ pub fn validate(code: String) -> Result(GtinFormat, ValidationError) {
   Ok(format)
 }
 
+/// Convert a GTIN-13 to GTIN-14 format using a configurable indicator digit.
+///
+/// Prepends the supplied indicator digit (0 through 9) to the 12 data digits of
+/// the GTIN-13 and recalculates the check digit. Leading and trailing whitespace
+/// is trimmed before validation. Only works with GTIN-13 codes; other formats
+/// return an error, and an indicator outside 0 through 9 returns
+/// `Error(InvalidFormat)`.
+///
+/// # Arguments
+///
+/// * `code` - GTIN-13 string to normalize
+/// * `indicator` - Indicator digit for the GTIN-14 packaging level (0 through 9)
+///
+/// # Returns
+///
+/// Ok(gtin_14) if successful, Error otherwise.
+///
+/// # Examples
+///
+/// ```gleam
+/// normalize_with_indicator("6291041500213", 1)
+/// // -> Ok("16291041500210")
+///
+/// normalize_with_indicator("6291041500213", 2)
+/// // -> Ok("26291041500217")
+///
+/// normalize_with_indicator("6291041500213", 10)
+/// // -> Error(InvalidFormat)
+/// ```
+pub fn normalize_with_indicator(
+  code: String,
+  indicator: Int,
+) -> Result(String, ValidationError) {
+  // Trim once up front and validate the trimmed value.
+  let trimmed = string.trim(code)
+
+  // First validate that it's a valid GTIN
+  use format <- result.try(validate(trimmed))
+
+  // Check that it's GTIN-13 and that the indicator is a single digit 0..9.
+  case format, indicator {
+    Gtin13, indicator if indicator >= 0 && indicator <= 9 -> {
+      // Prepend the indicator to the 12 data digits (drop the check digit).
+      let without_check = string.slice(trimmed, 0, string.length(trimmed) - 1)
+      let with_indicator = int.to_string(indicator) <> without_check
+
+      // Generate the new check digit, preserving the existing error surface
+      check_digit.generate(with_indicator)
+      |> result.map_error(fn(_) { InvalidFormat })
+    }
+    _, _ -> Error(InvalidFormat)
+  }
+}
+
+/// Validate that a trimmed code is a GTIN-14 and return its digit list.
+///
+/// Trims leading and trailing whitespace, parses the input to digits, and
+/// checks that it is exactly 14 digits with a correct check digit. The error
+/// ordering mirrors `validate` (characters, then length, then check digit) so
+/// that the down-conversion functions surface the same invalid-input errors.
+///
+/// # Arguments
+///
+/// * `code` - Candidate GTIN-14 string
+///
+/// # Returns
+///
+/// Ok(digits) with the 14 parsed digits if the code is a valid GTIN-14,
+/// Error(InvalidCharacters) if any character is non-numeric,
+/// Error(InvalidLength(got: n)) if the trimmed digit count is not 14, or
+/// Error(InvalidCheckDigit) if the check digit is incorrect.
+fn require_gtin14(code: String) -> Result(List(Int), ValidationError) {
+  // Trim whitespace to mirror `validate`.
+  let trimmed = string.trim(code)
+
+  // Parse to digits (characters checked first, matching `validate`).
+  use digits <- result.try(parse_digits(trimmed))
+
+  // Require exactly 14 digits.
+  case list.length(digits) {
+    14 -> {
+      // Validate the check digit last, matching `validate`.
+      use _ <- result.try(validate_check_digit(digits))
+      Ok(digits)
+    }
+    other -> Error(InvalidLength(got: other))
+  }
+}
+
+/// Convert a GTIN-14 with indicator digit 0 to its base GTIN-13.
+///
+/// Requires a valid GTIN-14 (14 digits, correct check digit). When the leading
+/// indicator digit is 0, the leading `0` is dropped and the existing check
+/// digit is preserved without recomputation, yielding a 13-digit string. A
+/// non-zero indicator returns `Error(InvalidFormat)`. Leading and trailing
+/// whitespace is trimmed before validation, and the invalid-input error
+/// ordering matches `validate`.
+///
+/// # Arguments
+///
+/// * `code` - GTIN-14 string to down-convert
+///
+/// # Returns
+///
+/// Ok(gtin_13) if the indicator digit is 0, Error otherwise.
+///
+/// # Examples
+///
+/// ```gleam
+/// to_gtin13("06291041500213")
+/// // -> Ok("6291041500213")
+///
+/// to_gtin13("16291041500210")
+/// // -> Error(InvalidFormat)
+/// ```
+pub fn to_gtin13(code: String) -> Result(String, ValidationError) {
+  use digits <- result.try(require_gtin14(code))
+
+  // Inspect the indicator (first digit): only 0 may be stripped.
+  case digits {
+    [0, ..] -> {
+      let trimmed = string.trim(code)
+      // Drop the leading indicator `0`, keeping the existing check digit.
+      Ok(string.slice(trimmed, 1, string.length(trimmed) - 1))
+    }
+    _ -> Error(InvalidFormat)
+  }
+}
+
+/// Convert a GTIN-14 with indicator digit 0 to its base GTIN-12 (UPC-A).
+///
+/// Requires a valid GTIN-14 (14 digits, correct check digit). The indicator
+/// digit (first digit) must be 0; a non-zero indicator returns
+/// `Error(InvalidFormat)`. When the indicator is 0, the base 13-digit code
+/// (after dropping the indicator) must itself be a UPC-A padded with an
+/// implicit leading zero — that is, the second digit of the GTIN-14 must also
+/// be 0. In that case both leading zeros are dropped to yield the 12-digit
+/// UPC-A, preserving the existing check digit without recomputation. When the
+/// base code cannot be represented as a GTIN-12, `Error(InvalidFormat)` is
+/// returned. Leading and trailing whitespace is trimmed before validation, and
+/// the invalid-input error ordering matches `validate`.
+///
+/// # Arguments
+///
+/// * `code` - GTIN-14 string to down-convert
+///
+/// # Returns
+///
+/// Ok(gtin_12) if the indicator digit is 0 and the base code is a UPC-A with an
+/// implicit leading zero, Error otherwise.
+///
+/// # Examples
+///
+/// ```gleam
+/// to_gtin12("00042100005264")
+/// // -> Ok("042100005264")
+///
+/// to_gtin12("00629104150021") // base is EAN-13, not a UPC-A
+/// // -> Error(InvalidFormat)
+/// ```
+pub fn to_gtin12(code: String) -> Result(String, ValidationError) {
+  use digits <- result.try(require_gtin14(code))
+
+  // Inspect the indicator and the implicit UPC-A leading-zero digit.
+  // A GTIN-14 shaped "0" <> ("0" <> gtin12) is a UPC-A padded to 13 with a
+  // leading zero, so both leading digits must be 0 to strip down to a GTIN-12.
+  case digits {
+    [0, 0, ..] -> {
+      let trimmed = string.trim(code)
+      // Drop both leading zeros, keeping the existing check digit, to yield the
+      // 12-digit UPC-A.
+      let gtin12 = string.slice(trimmed, 2, string.length(trimmed) - 2)
+
+      // Confirm the result validates as a GTIN-12 (Requirement 6.7).
+      case validate(gtin12) {
+        Ok(Gtin12) -> Ok(gtin12)
+        _ -> Error(InvalidFormat)
+      }
+    }
+    [0, ..] -> Error(InvalidFormat)
+    _ -> Error(InvalidFormat)
+  }
+}
+
 /// Convert a GTIN-13 to GTIN-14 format.
 ///
 /// Prepends the indicator digit "1" and recalculates the check digit.
-/// Only works with GTIN-13 codes; other formats return an error.
+/// Only works with GTIN-13 codes; other formats return an error. This is
+/// equivalent to `normalize_with_indicator(code, 1)`.
 ///
 /// # Arguments
 ///
@@ -205,23 +391,5 @@ pub fn validate(code: String) -> Result(GtinFormat, ValidationError) {
 /// // -> Error(InvalidFormat)
 /// ```
 pub fn normalize(code: String) -> Result(String, ValidationError) {
-  // Trim once up front and validate the trimmed value.
-  let trimmed = string.trim(code)
-
-  // First validate that it's a valid GTIN
-  use format <- result.try(validate(trimmed))
-
-  // Check that it's GTIN-13
-  case format {
-    Gtin13 -> {
-      // Prepend "1" to the trimmed code (without the check digit)
-      let without_check = string.slice(trimmed, 0, string.length(trimmed) - 1)
-      let with_indicator = "1" <> without_check
-
-      // Generate the new check digit, preserving the existing error surface
-      check_digit.generate(with_indicator)
-      |> result.map_error(fn(_) { InvalidFormat })
-    }
-    _ -> Error(InvalidFormat)
-  }
+  normalize_with_indicator(code, 1)
 }

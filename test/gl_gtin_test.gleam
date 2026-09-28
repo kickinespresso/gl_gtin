@@ -1,4 +1,8 @@
 import gl_gtin
+import gl_gtin/gtin_types.{
+  Gtin12, Gtin13, Gtin14, Gtin8, InvalidCharacters, InvalidCheckDigit,
+  InvalidFormat, InvalidLength, NoGs1PrefixFound,
+}
 import gleam/list
 import gleam/string
 import gleeunit
@@ -33,28 +37,28 @@ pub fn opaque_type_preservation_test() {
   list.each(valid_gtin_8_examples(), fn(code) {
     let assert Ok(gtin_val) = gl_gtin.from_string(code)
     gl_gtin.to_string(gtin_val) |> should.equal(code)
-    gl_gtin.format(gtin_val) |> should.equal(gl_gtin.Gtin8)
+    gl_gtin.format(gtin_val) |> should.equal(Gtin8)
   })
 
   // Test GTIN-12
   list.each(valid_gtin_12_examples(), fn(code) {
     let assert Ok(gtin_val) = gl_gtin.from_string(code)
     gl_gtin.to_string(gtin_val) |> should.equal(code)
-    gl_gtin.format(gtin_val) |> should.equal(gl_gtin.Gtin12)
+    gl_gtin.format(gtin_val) |> should.equal(Gtin12)
   })
 
   // Test GTIN-13
   list.each(valid_gtin_13_examples(), fn(code) {
     let assert Ok(gtin_val) = gl_gtin.from_string(code)
     gl_gtin.to_string(gtin_val) |> should.equal(code)
-    gl_gtin.format(gtin_val) |> should.equal(gl_gtin.Gtin13)
+    gl_gtin.format(gtin_val) |> should.equal(Gtin13)
   })
 
   // Test GTIN-14
   list.each(valid_gtin_14_examples(), fn(code) {
     let assert Ok(gtin_val) = gl_gtin.from_string(code)
     gl_gtin.to_string(gtin_val) |> should.equal(code)
-    gl_gtin.format(gtin_val) |> should.equal(gl_gtin.Gtin14)
+    gl_gtin.format(gtin_val) |> should.equal(Gtin14)
   })
 }
 
@@ -78,7 +82,7 @@ pub fn property_error_messages_include_context_test() {
   list.each(invalid_lengths, fn(code) {
     let result = gl_gtin.validate(code)
     case result {
-      Error(gl_gtin.InvalidLength(got)) -> {
+      Error(InvalidLength(got)) -> {
         // Verify the error includes the actual length
         assert got == string.length(code)
       }
@@ -99,45 +103,45 @@ pub fn property_specific_error_types_test() {
   // InvalidCheckDigit - valid length and all digits, but wrong check digit.
   // GTIN-8 with wrong check digit
   gl_gtin.validate("12345671")
-  |> should.equal(Error(gl_gtin.InvalidCheckDigit))
+  |> should.equal(Error(InvalidCheckDigit))
   // GTIN-12 with wrong check digit
   gl_gtin.validate("012345678906")
-  |> should.equal(Error(gl_gtin.InvalidCheckDigit))
+  |> should.equal(Error(InvalidCheckDigit))
   // GTIN-13 with wrong check digit
   gl_gtin.validate("6291041500214")
-  |> should.equal(Error(gl_gtin.InvalidCheckDigit))
+  |> should.equal(Error(InvalidCheckDigit))
   // GTIN-14 with wrong check digit
   gl_gtin.validate("12345678901232")
-  |> should.equal(Error(gl_gtin.InvalidCheckDigit))
+  |> should.equal(Error(InvalidCheckDigit))
 
   // InvalidCharacters - contains non-numeric characters. Character parsing
   // happens before the length check, so internal spaces, dashes, and letters
   // all surface as InvalidCharacters.
   gl_gtin.validate("629104150021A")
-  |> should.equal(Error(gl_gtin.InvalidCharacters))
+  |> should.equal(Error(InvalidCharacters))
   gl_gtin.validate("629 104 150 021")
-  |> should.equal(Error(gl_gtin.InvalidCharacters))
+  |> should.equal(Error(InvalidCharacters))
   gl_gtin.validate("629-104-150-021")
-  |> should.equal(Error(gl_gtin.InvalidCharacters))
+  |> should.equal(Error(InvalidCharacters))
   gl_gtin.validate("ABCDEFGHIJKLM")
-  |> should.equal(Error(gl_gtin.InvalidCharacters))
+  |> should.equal(Error(InvalidCharacters))
 
   // InvalidLength - wrong number of digits, reported with the actual length.
   gl_gtin.validate("123")
-  |> should.equal(Error(gl_gtin.InvalidLength(3)))
+  |> should.equal(Error(InvalidLength(3)))
   gl_gtin.validate("12345")
-  |> should.equal(Error(gl_gtin.InvalidLength(5)))
+  |> should.equal(Error(InvalidLength(5)))
   gl_gtin.validate("123456789012345")
-  |> should.equal(Error(gl_gtin.InvalidLength(15)))
+  |> should.equal(Error(InvalidLength(15)))
 
   // NoGs1PrefixFound - a valid-shaped 13-digit code whose 3-digit prefix (150)
   // falls in the unassigned 140-199 gap of the GS1 region table.
   gl_gtin.gs1_prefix_country("1501234567890")
-  |> should.equal(Error(gl_gtin.NoGs1PrefixFound))
+  |> should.equal(Error(NoGs1PrefixFound))
 
   // InvalidFormat - normalization on non-GTIN-13
-  let assert Error(gl_gtin.InvalidFormat) = gl_gtin.normalize("12345670")
-  let assert Error(gl_gtin.InvalidFormat) = gl_gtin.normalize("012345678905")
+  let assert Error(InvalidFormat) = gl_gtin.normalize("12345670")
+  let assert Error(InvalidFormat) = gl_gtin.normalize("012345678905")
 }
 
 // Integration Tests - End-to-end workflows
@@ -170,21 +174,21 @@ pub fn integration_generation_then_validation_test() {
 
   // Validate the generated GTIN-8
   let assert Ok(format) = gl_gtin.validate(generated_8)
-  format |> should.equal(gl_gtin.Gtin8)
+  format |> should.equal(Gtin8)
 
   // Generate a GTIN-13 from 12 digits
   let assert Ok(generated_13) = gl_gtin.generate("629104150021")
 
   // Validate the generated GTIN-13
   let assert Ok(format) = gl_gtin.validate(generated_13)
-  format |> should.equal(gl_gtin.Gtin13)
+  format |> should.equal(Gtin13)
 
   // Generate a GTIN-14 from 13 digits
   let assert Ok(generated_14) = gl_gtin.generate("1234567890123")
 
   // Validate the generated GTIN-14
   let assert Ok(format) = gl_gtin.validate(generated_14)
-  format |> should.equal(gl_gtin.Gtin14)
+  format |> should.equal(Gtin14)
 }
 
 // Integration Test 3: Normalization then validation workflow
@@ -195,7 +199,7 @@ pub fn integration_normalization_then_validation_test() {
 
   // Validate the normalized GTIN-14
   let assert Ok(format) = gl_gtin.validate(normalized)
-  format |> should.equal(gl_gtin.Gtin14)
+  format |> should.equal(Gtin14)
 
   // Verify the normalized code is 14 digits
   string.length(normalized) |> should.equal(14)
@@ -203,7 +207,7 @@ pub fn integration_normalization_then_validation_test() {
   // Test with another GTIN-13
   let assert Ok(normalized) = gl_gtin.normalize("5901234123457")
   let assert Ok(format) = gl_gtin.validate(normalized)
-  format |> should.equal(gl_gtin.Gtin14)
+  format |> should.equal(Gtin14)
   string.length(normalized) |> should.equal(14)
 }
 
@@ -218,7 +222,7 @@ pub fn integration_full_workflow_test() {
 
   // Validate the generated GTIN
   let assert Ok(format) = gl_gtin.validate(generated)
-  format |> should.equal(gl_gtin.Gtin13)
+  format |> should.equal(Gtin13)
 
   // Look up the country
   let assert Ok(country) = gl_gtin.gs1_prefix_country(generated)
@@ -262,7 +266,7 @@ pub fn edge_case_very_large_numbers_test() {
 pub fn readme_example_validate_test() {
   // Valid GTIN-13
   let assert Ok(format) = gl_gtin.validate("6291041500213")
-  format |> should.equal(gl_gtin.Gtin13)
+  format |> should.equal(Gtin13)
 
   // Invalid GTIN-13
   let result = gl_gtin.validate("6291041500214")
@@ -294,7 +298,7 @@ pub fn readme_example_normalize_test() {
 
   // Verify it's a valid GTIN-14
   let assert Ok(format) = gl_gtin.validate(normalized)
-  format |> should.equal(gl_gtin.Gtin14)
+  format |> should.equal(Gtin14)
 }
 
 // Normalize: exact corrected value

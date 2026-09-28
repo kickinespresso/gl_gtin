@@ -70,23 +70,117 @@ fn calculate_weighted_sum(
 /// // -> Ok(3)
 /// ```
 pub fn calculate(digits: List(Int)) -> Result(Int, CheckDigitError) {
-  case list.length(digits) {
-    0 -> Error(InvalidLength(got: 0))
-    len if len > 13 -> Error(InvalidLength(got: len))
-    _ -> {
-      // Reverse the list to process from right to left
-      let reversed = list.reverse(digits)
-      // Calculate weighted sum starting with weight 3
-      let weighted_sum = calculate_weighted_sum(reversed, 3, 0)
-      // Calculate modulo 10
-      let modulo = weighted_sum % 10
-      // Determine check digit
-      let check_digit = case modulo {
-        0 -> 0
-        _ -> 10 - modulo
+  use _ <- result.try(validate_body(digits))
+  // Reverse the list to process from right to left
+  let reversed = list.reverse(digits)
+  // Calculate weighted sum starting with weight 3
+  let weighted_sum = calculate_weighted_sum(reversed, 3, 0)
+  // Calculate modulo 10
+  let modulo = weighted_sum % 10
+  // Determine check digit
+  let check_digit = case modulo {
+    0 -> 0
+    _ -> 10 - modulo
+  }
+  Ok(check_digit)
+}
+
+/// Validate a digit list whose final element is its check digit.
+///
+/// Splits the list into its leading body and final element, computes the
+/// check digit for the body via the GS1 Modulo 10 algorithm, and returns
+/// `True` only when the final element equals that computed check digit.
+/// An empty list has no body to check against and returns `False`; any
+/// input for which `calculate` errors (for example a body containing an
+/// out-of-range element) also returns `False`.
+///
+/// # Arguments
+///
+/// * `digits` - List of digits whose last element is treated as the check digit
+///
+/// # Returns
+///
+/// `True` if the last element matches the computed check digit, `False` otherwise.
+///
+/// # Examples
+///
+/// ```gleam
+/// valid([6, 2, 9, 1, 0, 4, 1, 5, 0, 0, 2, 1, 3])
+/// // -> True
+///
+/// valid([])
+/// // -> False
+/// ```
+pub fn valid(digits: List(Int)) -> Bool {
+  case list.reverse(digits) {
+    [] -> False
+    [check, ..reversed_body] -> {
+      let body = list.reverse(reversed_body)
+      case calculate(body) {
+        Ok(expected) -> expected == check
+        Error(_) -> False
       }
-      Ok(check_digit)
     }
+  }
+}
+
+/// Append the computed check digit to a digit body.
+///
+/// Validates the body via the same guard as `calculate` (non-empty and every
+/// element in 0..9), computes the check digit with the GS1 Modulo 10 algorithm,
+/// and returns the original body with that check digit appended as its final
+/// element. This is the inverse of `valid`: `valid(append(body))` is always
+/// `True` for any well-formed body.
+///
+/// # Arguments
+///
+/// * `digits` - List of body digits (without a check digit)
+///
+/// # Returns
+///
+/// Ok(digits ++ [check_digit]) if the body is well-formed,
+/// Error(InvalidLength(got: 0)) for an empty list, or
+/// Error(InvalidCharacters) if any element is outside 0..9.
+///
+/// # Examples
+///
+/// ```gleam
+/// append([6, 2, 9, 1, 0, 4, 1, 5, 0, 0, 2, 1])
+/// // -> Ok([6, 2, 9, 1, 0, 4, 1, 5, 0, 0, 2, 1, 3])
+///
+/// append([])
+/// // -> Error(InvalidLength(got: 0))
+/// ```
+pub fn append(digits: List(Int)) -> Result(List(Int), CheckDigitError) {
+  use _ <- result.try(validate_body(digits))
+  use check <- result.try(calculate(digits))
+  Ok(list.append(digits, [check]))
+}
+
+/// Validate that a digit body is well-formed for check digit calculation.
+///
+/// A valid body is non-empty and every element is a single decimal digit
+/// in the range 0 through 9. Unlike the previous length cap, any non-empty
+/// body is accepted so that longer GS1 keys (such as SSCC and GSIN) can reuse
+/// the same mod-10 routine.
+///
+/// # Arguments
+///
+/// * `digits` - List of digits to validate
+///
+/// # Returns
+///
+/// Ok(Nil) if the body is non-empty and every element is in 0..9,
+/// Error(InvalidLength(got: 0)) for an empty list, or
+/// Error(InvalidCharacters) if any element is outside 0..9.
+fn validate_body(digits: List(Int)) -> Result(Nil, CheckDigitError) {
+  case digits {
+    [] -> Error(InvalidLength(got: 0))
+    _ ->
+      case list.all(digits, fn(digit) { digit >= 0 && digit <= 9 }) {
+        True -> Ok(Nil)
+        False -> Error(InvalidCharacters)
+      }
   }
 }
 

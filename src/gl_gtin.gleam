@@ -30,34 +30,47 @@
 
 import gl_gtin/check_digit
 import gl_gtin/gs1_prefix
+
+// Re-export the shared public types `GtinFormat` and `GtinError` and bring
+// their variant constructors into scope. The types are defined in
+// `gl_gtin/gtin_types` so that sub-modules (e.g. `gl_gtin/upc`) can work in
+// `GtinError` without importing this facade, which would create a cycle. The
+// type aliases below make `gl_gtin.GtinFormat` / `gl_gtin.GtinError` the public
+// type names; the variant constructors are owned by `gl_gtin/gtin_types`, so
+// consumers import them from there, e.g.
+// `import gl_gtin/gtin_types.{Gtin13, InvalidFormat}`.
+import gl_gtin/gtin_types.{
+  Gtin12, Gtin13, Gtin14, Gtin8, InvalidCharacters, InvalidCheckDigit,
+  InvalidFormat, InvalidLength, NoGs1PrefixFound,
+}
+import gl_gtin/parse as parse_mod
+import gl_gtin/upc
 import gl_gtin/validation
 import gleam/result
 
 /// Supported GTIN formats based on digit count.
-pub type GtinFormat {
-  /// 8-digit GTIN format, used for small packages outside North America
-  Gtin8
-  /// 12-digit GTIN format (UPC-A), primarily used in North America
-  Gtin12
-  /// 13-digit GTIN format (EAN-13), used internationally
-  Gtin13
-  /// 14-digit GTIN format (ITF-14), used for trade items at various packaging levels
-  Gtin14
-}
+///
+/// This is a re-export of `gl_gtin/gtin_types.GtinFormat`. Import the variants
+/// from the owning module — `import gl_gtin/gtin_types.{Gtin8, Gtin12, Gtin13,
+/// Gtin14}` — to construct or pattern-match on them.
+pub type GtinFormat =
+  gtin_types.GtinFormat
 
 /// Errors that can occur when working with GTIN codes.
-pub type GtinError {
-  /// Input has wrong number of digits. Includes the actual length provided.
-  InvalidLength(got: Int)
-  /// Check digit does not match the calculated value.
-  InvalidCheckDigit
-  /// Input contains non-numeric characters.
-  InvalidCharacters
-  /// GS1 prefix not found in the database.
-  NoGs1PrefixFound
-  /// Operation not applicable to this GTIN format.
-  InvalidFormat
-}
+///
+/// This is a re-export of `gl_gtin/gtin_types.GtinError`. Import the variants
+/// from the owning module — e.g. `import gl_gtin/gtin_types.{InvalidFormat,
+/// InvalidLength}` — to construct or pattern-match on them.
+pub type GtinError =
+  gtin_types.GtinError
+
+/// Structured decomposition of a validated GTIN code.
+///
+/// This is a re-export of `gl_gtin/parse.GtinInfo`. Import the record
+/// constructor from the owning module — `import gl_gtin/parse.{GtinInfo}` — to
+/// construct or pattern-match on it.
+pub type GtinInfo =
+  parse_mod.GtinInfo
 
 /// A validated GTIN code.
 ///
@@ -180,6 +193,161 @@ pub fn normalize(code: String) -> Result(String, GtinError) {
       validation.InvalidFormat -> InvalidFormat
     }
   })
+}
+
+/// Convert a GTIN-13 to GTIN-14 format with an explicit indicator digit.
+///
+/// Prepends the given indicator digit (0 through 9) and recalculates the check
+/// digit. Only works with GTIN-13 codes; other formats or an out-of-range
+/// indicator return an error.
+///
+/// # Examples
+///
+/// ```gleam
+/// normalize_with_indicator("6291041500213", 2)
+/// // -> Ok("26291041500217")
+///
+/// normalize_with_indicator("6291041500213", 10)
+/// // -> Error(InvalidFormat)
+/// ```
+pub fn normalize_with_indicator(
+  code: String,
+  indicator: Int,
+) -> Result(String, GtinError) {
+  validation.normalize_with_indicator(code, indicator)
+  |> result.map_error(fn(err) {
+    case err {
+      validation.InvalidLength(got) -> InvalidLength(got)
+      validation.InvalidCheckDigit -> InvalidCheckDigit
+      validation.InvalidCharacters -> InvalidCharacters
+      validation.InvalidFormat -> InvalidFormat
+    }
+  })
+}
+
+/// Convert a GTIN-14 with indicator digit 0 to its base GTIN-13.
+///
+/// Requires a valid GTIN-14 (14 digits, correct check digit). When the leading
+/// indicator digit is 0, the leading `0` is dropped and the existing check
+/// digit is preserved, yielding a 13-digit string. A non-zero indicator returns
+/// `Error(InvalidFormat)`. Leading and trailing whitespace is trimmed before
+/// validation.
+///
+/// # Examples
+///
+/// ```gleam
+/// to_gtin13("06291041500213")
+/// // -> Ok("6291041500213")
+///
+/// to_gtin13("16291041500210")
+/// // -> Error(InvalidFormat)
+/// ```
+pub fn to_gtin13(code: String) -> Result(String, GtinError) {
+  validation.to_gtin13(code)
+  |> result.map_error(fn(err) {
+    case err {
+      validation.InvalidLength(got) -> InvalidLength(got)
+      validation.InvalidCheckDigit -> InvalidCheckDigit
+      validation.InvalidCharacters -> InvalidCharacters
+      validation.InvalidFormat -> InvalidFormat
+    }
+  })
+}
+
+/// Convert a GTIN-14 with indicator digit 0 to its base GTIN-12 (UPC-A).
+///
+/// Requires a valid GTIN-14 (14 digits, correct check digit) whose base code is
+/// a UPC-A padded with an implicit leading zero (both leading digits are 0).
+/// When so, both leading zeros are dropped to yield the 12-digit UPC-A,
+/// preserving the existing check digit. A non-zero indicator or a base code that
+/// cannot be represented as a GTIN-12 returns `Error(InvalidFormat)`. Leading
+/// and trailing whitespace is trimmed before validation.
+///
+/// # Examples
+///
+/// ```gleam
+/// to_gtin12("00042100005264")
+/// // -> Ok("042100005264")
+///
+/// to_gtin12("16291041500210")
+/// // -> Error(InvalidFormat)
+/// ```
+pub fn to_gtin12(code: String) -> Result(String, GtinError) {
+  validation.to_gtin12(code)
+  |> result.map_error(fn(err) {
+    case err {
+      validation.InvalidLength(got) -> InvalidLength(got)
+      validation.InvalidCheckDigit -> InvalidCheckDigit
+      validation.InvalidCharacters -> InvalidCharacters
+      validation.InvalidFormat -> InvalidFormat
+    }
+  })
+}
+
+/// Expand a compressed 8-digit UPC-E code to its full 12-digit UPC-A form.
+///
+/// This is a thin pass-through to `gl_gtin/upc.upce_to_upca`, which already
+/// works in the public `GtinError` type. See that module for the full
+/// zero-suppression expansion rules and validation ordering.
+///
+/// # Examples
+///
+/// ```gleam
+/// upce_to_upca("04252614")
+/// // -> Ok("042100005264")
+///
+/// upce_to_upca("24252614")
+/// // -> Error(InvalidFormat)
+/// ```
+pub fn upce_to_upca(code: String) -> Result(String, GtinError) {
+  upc.upce_to_upca(code)
+}
+
+/// Compress a full 12-digit UPC-A code to its 8-digit UPC-E form when possible.
+///
+/// This is a thin pass-through to `gl_gtin/upc.upca_to_upce`, which already
+/// works in the public `GtinError` type. See that module for the full
+/// zero-suppression compression rules and validation ordering.
+///
+/// # Examples
+///
+/// ```gleam
+/// upca_to_upce("042100005264")
+/// // -> Ok("04252614")
+///
+/// upca_to_upce("012345678905")
+/// // -> Error(InvalidFormat)
+/// ```
+pub fn upca_to_upce(code: String) -> Result(String, GtinError) {
+  upc.upca_to_upce(code)
+}
+
+/// Decompose a validated GTIN into a structured `GtinInfo` record.
+///
+/// This is a thin pass-through to `gl_gtin/parse.parse`, which already works in
+/// the public `GtinError` type. The input is trimmed and validated first
+/// (length, then characters, then check digit); an invalid code returns the
+/// corresponding `GtinError` and never a partially populated `GtinInfo`. See
+/// that module for the full field-derivation and GS1 company-prefix rules.
+///
+/// # Examples
+///
+/// ```gleam
+/// parse("6291041500213")
+/// // -> Ok(GtinInfo(
+/// //   format: Gtin13,
+/// //   digits: "6291041500213",
+/// //   indicator: Error(Nil),
+/// //   gs1_prefix: "629",
+/// //   gs1_region: Ok("GS1 Emirates"),
+/// //   check_digit: 3,
+/// // ))
+///
+/// parse("invalid")
+/// // -> Error(InvalidCharacters)
+/// ```
+pub fn parse(code: String) -> Result(GtinInfo, GtinError) {
+  parse_mod.parse(code)
 }
 
 /// Create an opaque Gtin value from a validated string.

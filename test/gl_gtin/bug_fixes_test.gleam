@@ -12,6 +12,10 @@
 ////   C - normalize whitespace (untrimmed slice fails on padded valid input)
 
 import gl_gtin
+import gl_gtin/gtin_types.{
+  Gtin12, Gtin13, Gtin14, Gtin8, InvalidCharacters, InvalidCheckDigit,
+  InvalidFormat, InvalidLength, NoGs1PrefixFound,
+}
 import gleeunit/should
 
 // Cluster A - Prefix range table (Issue 1)
@@ -78,7 +82,7 @@ pub fn cluster_c_normalize_whitespace_test() {
 // exploration counterexample that now correctly errors after the fix.
 pub fn unassigned_range_returns_error_test() {
   gl_gtin.gs1_prefix_country("1501234567890")
-  |> should.equal(Error(gl_gtin.NoGs1PrefixFound))
+  |> should.equal(Error(NoGs1PrefixFound))
 }
 
 // ---------------------------------------------------------------------------
@@ -137,28 +141,28 @@ pub fn preservation_previously_correct_prefixes_test() {
 pub fn preservation_validate_outcomes_test() {
   // Valid GTIN-8/12/13/14 with correct check digits.
   gl_gtin.validate("96385074")
-  |> should.equal(Ok(gl_gtin.Gtin8))
+  |> should.equal(Ok(Gtin8))
 
   gl_gtin.validate("012345678905")
-  |> should.equal(Ok(gl_gtin.Gtin12))
+  |> should.equal(Ok(Gtin12))
 
   gl_gtin.validate("6291041500213")
-  |> should.equal(Ok(gl_gtin.Gtin13))
+  |> should.equal(Ok(Gtin13))
 
   gl_gtin.validate("12345678901231")
-  |> should.equal(Ok(gl_gtin.Gtin14))
+  |> should.equal(Ok(Gtin14))
 
   // Wrong length -> InvalidLength(got).
   gl_gtin.validate("123")
-  |> should.equal(Error(gl_gtin.InvalidLength(3)))
+  |> should.equal(Error(InvalidLength(3)))
 
   // Correct length, bad check digit -> InvalidCheckDigit.
   gl_gtin.validate("6291041500214")
-  |> should.equal(Error(gl_gtin.InvalidCheckDigit))
+  |> should.equal(Error(InvalidCheckDigit))
 
   // Non-digit characters -> InvalidCharacters.
   gl_gtin.validate("629104150021A")
-  |> should.equal(Error(gl_gtin.InvalidCharacters))
+  |> should.equal(Error(InvalidCharacters))
 }
 
 // Preservation - whitespace-free normalize (Requirements 3.4, 3.5)
@@ -173,7 +177,7 @@ pub fn preservation_normalize_no_whitespace_test() {
 
   // GTIN-12 is not a GTIN-13 -> InvalidFormat, unchanged by the fix.
   gl_gtin.normalize("012345678905")
-  |> should.equal(Error(gl_gtin.InvalidFormat))
+  |> should.equal(Error(InvalidFormat))
 }
 
 // Preservation - NoGs1PrefixFound (Requirement 3.6)
@@ -191,5 +195,5 @@ pub fn preservation_normalize_no_whitespace_test() {
 pub fn preservation_no_gs1_prefix_found_test() {
   // "1" is shorter than a prefix -> no GS1 prefix in either implementation.
   gl_gtin.gs1_prefix_country("1")
-  |> should.equal(Error(gl_gtin.NoGs1PrefixFound))
+  |> should.equal(Error(NoGs1PrefixFound))
 }

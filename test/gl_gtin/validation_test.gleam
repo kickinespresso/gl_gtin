@@ -342,3 +342,168 @@ pub fn normalize_preserves_validity_test() {
     string.length(normalized) |> should.equal(14)
   })
 }
+
+// Normalize With Indicator - Worked Examples
+//
+// normalize_with_indicator prepends the supplied indicator digit (0..9) to the
+// 12 data digits of a GTIN-13 and recomputes the check digit.
+// _Requirements: 4.3, 4.4, 4.7, 8.8_
+pub fn normalize_with_indicator_worked_examples_test() {
+  // Indicator 1 (also mirrors the doc-comment example)
+  validation.normalize_with_indicator("6291041500213", 1)
+  |> should.equal(Ok("16291041500210"))
+
+  // Indicator 2 (also mirrors the doc-comment example)
+  validation.normalize_with_indicator("6291041500213", 2)
+  |> should.equal(Ok("26291041500217"))
+
+  // Indicator 3
+  validation.normalize_with_indicator("6291041500213", 3)
+  |> should.equal(Ok("36291041500214"))
+
+  // Indicator 9
+  validation.normalize_with_indicator("6291041500213", 9)
+  |> should.equal(Ok("96291041500216"))
+}
+
+// Normalize With Indicator - Out-of-Range Indicators
+//
+// An indicator outside 0..9 returns Error(InvalidFormat).
+// _Requirements: 4.5, 4.6_
+pub fn normalize_with_indicator_out_of_range_test() {
+  // Negative indicator
+  validation.normalize_with_indicator("6291041500213", -1)
+  |> should.equal(Error(validation.InvalidFormat))
+
+  // Indicator 10 (also mirrors the doc-comment example)
+  validation.normalize_with_indicator("6291041500213", 10)
+  |> should.equal(Error(validation.InvalidFormat))
+
+  // Indicator 99 (well above range)
+  validation.normalize_with_indicator("6291041500213", 99)
+  |> should.equal(Error(validation.InvalidFormat))
+}
+
+// Normalize With Indicator - Invalid GTIN-13 Error Parity
+//
+// For an input that is not a valid GTIN-13, normalize_with_indicator(x, k)
+// returns the same Error as normalize(x).
+// _Requirements: 4.7, 4.8_
+pub fn normalize_with_indicator_invalid_gtin13_parity_test() {
+  // GTIN-13 with a wrong check digit
+  validation.normalize_with_indicator("6291041500214", 1)
+  |> should.equal(validation.normalize("6291041500214"))
+
+  // Non-GTIN-13 format (GTIN-12)
+  validation.normalize_with_indicator("012345678905", 3)
+  |> should.equal(validation.normalize("012345678905"))
+
+  // Non-GTIN-13 format (GTIN-8)
+  validation.normalize_with_indicator("96385074", 5)
+  |> should.equal(validation.normalize("96385074"))
+
+  // Non-GTIN-13 format (GTIN-14)
+  validation.normalize_with_indicator("12345678901231", 2)
+  |> should.equal(validation.normalize("12345678901231"))
+
+  // Non-numeric characters
+  validation.normalize_with_indicator("629104150021A", 1)
+  |> should.equal(validation.normalize("629104150021A"))
+
+  // Empty string
+  validation.normalize_with_indicator("", 1)
+  |> should.equal(validation.normalize(""))
+
+  // Invalid length (too short)
+  validation.normalize_with_indicator("123", 1)
+  |> should.equal(validation.normalize("123"))
+
+  // Invalid length (too long)
+  validation.normalize_with_indicator("123456789012345", 1)
+  |> should.equal(validation.normalize("123456789012345"))
+}
+
+// to_gtin13 - Worked Examples (mirrors doc-comment examples)
+//
+// to_gtin13 requires a valid GTIN-14. When the leading indicator digit is 0,
+// the leading `0` is dropped and the existing check digit is preserved,
+// yielding the base GTIN-13. A non-zero indicator returns
+// Error(InvalidFormat).
+// _Requirements: 5.2, 5.4, 8.8_
+pub fn to_gtin13_worked_examples_test() {
+  // Indicator 0 strips the leading zero (mirrors the doc-comment example)
+  validation.to_gtin13("06291041500213")
+  |> should.equal(Ok("6291041500213"))
+
+  // Non-zero indicator cannot be stripped (mirrors the doc-comment example)
+  validation.to_gtin13("16291041500210")
+  |> should.equal(Error(validation.InvalidFormat))
+
+  // Another indicator-0 example: all zeros round-trips to a 13-digit basis
+  validation.to_gtin13("00000000000000")
+  |> should.equal(Ok("0000000000000"))
+}
+
+// to_gtin13 - Invalid Input Error Ordering
+//
+// to_gtin13 surfaces the same invalid-input errors as validate: non-numeric
+// characters first, then length, then check digit.
+// _Requirements: 5.5, 5.6, 5.7_
+pub fn to_gtin13_invalid_input_test() {
+  // Non-numeric characters
+  validation.to_gtin13("0629104150021A")
+  |> should.equal(Error(validation.InvalidCharacters))
+
+  // Wrong length (13 digits, not a GTIN-14)
+  validation.to_gtin13("6291041500213")
+  |> should.equal(Error(validation.InvalidLength(got: 13)))
+
+  // Wrong length (empty)
+  validation.to_gtin13("")
+  |> should.equal(Error(validation.InvalidLength(got: 0)))
+
+  // Correct length but wrong check digit
+  validation.to_gtin13("06291041500214")
+  |> should.equal(Error(validation.InvalidCheckDigit))
+}
+
+// to_gtin12 - Worked Examples (mirrors doc-comment examples)
+//
+// to_gtin12 requires a valid GTIN-14 whose base is a UPC-A padded with an
+// implicit leading zero (both leading digits 0). It drops both leading zeros
+// to yield the 12-digit UPC-A. A base that is a genuine EAN-13 (non-zero
+// second digit) is not representable and returns Error(InvalidFormat).
+// _Requirements: 6.2, 6.3, 6.4, 6.5_
+pub fn to_gtin12_worked_examples_test() {
+  // UPC-A-based GTIN-14 strips both leading zeros (mirrors the doc-comment
+  // example)
+  validation.to_gtin12("00042100005264")
+  |> should.equal(Ok("042100005264"))
+
+  // Base is a genuine EAN-13 (second digit non-zero) -> not representable
+  validation.to_gtin12("06291041500213")
+  |> should.equal(Error(validation.InvalidFormat))
+
+  // Non-zero indicator -> not representable
+  validation.to_gtin12("16291041500210")
+  |> should.equal(Error(validation.InvalidFormat))
+}
+
+// to_gtin12 - Invalid Input Error Ordering
+//
+// to_gtin12 surfaces the same invalid-input errors as validate before any
+// down-conversion: non-numeric characters, then length, then check digit.
+// _Requirements: 6.6_
+pub fn to_gtin12_invalid_input_test() {
+  // Non-numeric characters
+  validation.to_gtin12("0004210000526A")
+  |> should.equal(Error(validation.InvalidCharacters))
+
+  // Wrong length (12 digits, not a GTIN-14)
+  validation.to_gtin12("042100005264")
+  |> should.equal(Error(validation.InvalidLength(got: 12)))
+
+  // Correct length but wrong check digit
+  validation.to_gtin12("00042100005265")
+  |> should.equal(Error(validation.InvalidCheckDigit))
+}

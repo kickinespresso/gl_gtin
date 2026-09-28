@@ -169,9 +169,9 @@ pub fn check_digit_calculation_edge_cases_test() {
   let result = check_digit.calculate([])
   result |> should.be_error()
 
-  // Too long (14 digits)
+  // Length cap lifted (F0): a 14-digit body is now accepted
   let result = check_digit.calculate([1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4])
-  result |> should.be_error()
+  result |> should.be_ok()
 }
 
 // Generate with All Zeros
@@ -239,4 +239,165 @@ pub fn generate_with_mixed_digits_test() {
   // Random pattern
   let assert Ok(result) = check_digit.generate("3141592")
   string.length(result) |> should.equal(8)
+}
+
+// F0: calculate rejects an empty body
+//
+// Requirement 1.2: WHEN calculate is called with an empty list, THE
+// Check_Digit_Engine SHALL return Error(InvalidLength(got: 0)).
+pub fn f0_calculate_empty_body_test() {
+  check_digit.calculate([])
+  |> should.equal(Error(check_digit.InvalidLength(got: 0)))
+}
+
+// F0: calculate rejects an out-of-range element
+//
+// Requirement 1.3: IF calculate is called with a non-empty list containing any
+// element outside the range 0 through 9, THEN THE Check_Digit_Engine SHALL
+// return Error(InvalidCharacters).
+pub fn f0_calculate_out_of_range_element_test() {
+  // Element greater than 9
+  check_digit.calculate([1, 2, 10, 4])
+  |> should.equal(Error(check_digit.InvalidCharacters))
+
+  // Negative element
+  check_digit.calculate([1, -1, 3])
+  |> should.equal(Error(check_digit.InvalidCharacters))
+}
+
+// F0: regression vectors for lengths 1..13 produce unchanged check digits
+//
+// Requirement 1.4: WHEN calculate is called with any digit body of length 1
+// through 13 that was accepted before this change, THE Check_Digit_Engine SHALL
+// return the same check digit as before this change.
+pub fn f0_calculate_regression_lengths_1_to_13_test() {
+  // Length 1
+  check_digit.calculate([5]) |> should.equal(Ok(5))
+  // Length 2
+  check_digit.calculate([1, 2]) |> should.equal(Ok(3))
+  // Length 3
+  check_digit.calculate([1, 2, 3]) |> should.equal(Ok(6))
+  // Length 4
+  check_digit.calculate([1, 2, 3, 4]) |> should.equal(Ok(8))
+  // Length 5
+  check_digit.calculate([1, 2, 3, 4, 5]) |> should.equal(Ok(7))
+  // Length 6
+  check_digit.calculate([1, 2, 3, 4, 5, 6]) |> should.equal(Ok(5))
+  // Length 7 (all zeros -> 0)
+  check_digit.calculate([0, 0, 0, 0, 0, 0, 0]) |> should.equal(Ok(0))
+  // Length 7 (all nines -> 5)
+  check_digit.calculate([9, 9, 9, 9, 9, 9, 9]) |> should.equal(Ok(5))
+  // Length 8
+  check_digit.calculate([1, 2, 3, 4, 5, 6, 7, 8]) |> should.equal(Ok(4))
+  // Length 9
+  check_digit.calculate([1, 2, 3, 4, 5, 6, 7, 8, 9]) |> should.equal(Ok(5))
+  // Length 10
+  check_digit.calculate([1, 2, 3, 4, 5, 6, 7, 8, 9, 0])
+  |> should.equal(Ok(5))
+  // Length 11 (known GTIN-12 body -> 5)
+  check_digit.calculate([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0])
+  |> should.equal(Ok(5))
+  // Length 12 (known GTIN-13 body -> 3)
+  check_digit.calculate([6, 2, 9, 1, 0, 4, 1, 5, 0, 0, 2, 1])
+  |> should.equal(Ok(3))
+  // Length 13
+  check_digit.calculate([1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3])
+  |> should.equal(Ok(1))
+}
+
+// F0: a 17-digit SSCC-shaped body now returns a check digit
+//
+// Requirement 1.1: the length cap is lifted so longer GS1 keys can reuse the
+// mod-10 routine. An SSCC has 17 data digits followed by a check digit.
+pub fn f0_calculate_sscc_body_test() {
+  // 17-digit body (SSCC data digits, without check digit)
+  let result =
+    check_digit.calculate([1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7])
+  result |> should.be_ok()
+
+  // The returned check digit is a single digit 0..9
+  let assert Ok(digit) =
+    check_digit.calculate([1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7])
+  { digit >= 0 && digit <= 9 } |> should.be_true()
+}
+
+// F0: valid rejects an empty list
+//
+// Requirement 1.7: IF valid is called with an empty list, THEN THE
+// Check_Digit_Engine SHALL return False.
+pub fn f0_valid_empty_list_test() {
+  check_digit.valid([]) |> should.be_false()
+}
+
+// F0: valid accepts a body appended with its check digit
+//
+// Requirements 1.5, 1.8: a valid body via append then valid == True.
+pub fn f0_valid_after_append_test() {
+  let assert Ok(appended) =
+    check_digit.append([6, 2, 9, 1, 0, 4, 1, 5, 0, 0, 2, 1])
+  check_digit.valid(appended) |> should.be_true()
+}
+
+// F0: valid rejects a wrong check digit
+//
+// Requirement 1.6: WHEN valid is called with a non-empty digit list whose last
+// element does not equal the computed check digit, THE Check_Digit_Engine SHALL
+// return False.
+pub fn f0_valid_wrong_check_digit_test() {
+  // Body 629104150021 has check digit 3; use 4 instead.
+  check_digit.valid([6, 2, 9, 1, 0, 4, 1, 5, 0, 0, 2, 1, 4])
+  |> should.be_false()
+}
+
+// F0: append rejects an empty list
+//
+// Requirement 1.9: IF append is called with an empty list, THEN THE
+// Check_Digit_Engine SHALL return Error(InvalidLength(got: 0)).
+pub fn f0_append_empty_list_test() {
+  check_digit.append([])
+  |> should.equal(Error(check_digit.InvalidLength(got: 0)))
+}
+
+// F0: append rejects an out-of-range element
+//
+// Requirement 1.10: IF append is called with a non-empty list containing any
+// element outside the range 0 through 9, THEN THE Check_Digit_Engine SHALL
+// return Error(InvalidCharacters).
+pub fn f0_append_out_of_range_element_test() {
+  check_digit.append([1, 2, 10, 4])
+  |> should.equal(Error(check_digit.InvalidCharacters))
+
+  check_digit.append([1, -1, 3])
+  |> should.equal(Error(check_digit.InvalidCharacters))
+}
+
+// F0: append returns the body with the computed check digit as final element
+//
+// Requirement 1.8: append returns Ok(list) where the returned list equals the
+// input list with the computed check digit appended as its final element.
+pub fn f0_append_appends_check_digit_test() {
+  check_digit.append([6, 2, 9, 1, 0, 4, 1, 5, 0, 0, 2, 1])
+  |> should.equal(Ok([6, 2, 9, 1, 0, 4, 1, 5, 0, 0, 2, 1, 3]))
+}
+
+// F0 doc-comment examples
+//
+// Requirement 8.8: every doc-comment example on the new public functions is
+// mirrored as an assertion so the stated outputs are exercised with zero
+// failures.
+pub fn f0_doc_comment_examples_test() {
+  // calculate doc example
+  check_digit.calculate([6, 2, 9, 1, 0, 4, 1, 5, 0, 0, 2, 1])
+  |> should.equal(Ok(3))
+
+  // valid doc examples
+  check_digit.valid([6, 2, 9, 1, 0, 4, 1, 5, 0, 0, 2, 1, 3])
+  |> should.be_true()
+  check_digit.valid([]) |> should.be_false()
+
+  // append doc examples
+  check_digit.append([6, 2, 9, 1, 0, 4, 1, 5, 0, 0, 2, 1])
+  |> should.equal(Ok([6, 2, 9, 1, 0, 4, 1, 5, 0, 0, 2, 1, 3]))
+  check_digit.append([])
+  |> should.equal(Error(check_digit.InvalidLength(got: 0)))
 }

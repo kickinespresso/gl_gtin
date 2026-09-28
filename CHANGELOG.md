@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-09-26
+
+Additive Tier 1 feature release (F0–F4). All new public functions are additive:
+no existing public signature or return type changes, and the `Gtin` type stays
+opaque.
+
+### Added
+
+- **F0** — Generalized the check-digit engine (`gl_gtin/check_digit`). The
+  `check_digit.calculate` length cap is lifted so any non-empty digit body of
+  length 1–20 is accepted (existing check digits are unchanged), and two new
+  engine helpers are added: `check_digit.valid/1` (verify a body's trailing
+  check digit) and `check_digit.append/1` (compute and append the check digit).
+- **F1** — UPC-E ⇄ UPC-A conversion (new module `gl_gtin/upc`). New public
+  functions `gl_gtin.upce_to_upca/1` and `gl_gtin.upca_to_upce/1` expand a
+  compressed 8-digit UPC-E to its 12-digit UPC-A form and compress a
+  compressible UPC-A back to UPC-E.
+- **F2** — Configurable GTIN-14 indicator digit. New
+  `gl_gtin.normalize_with_indicator/2` prepends a caller-supplied indicator
+  (0–9) and recomputes the check digit; `gl_gtin.normalize/1` now delegates to
+  it with indicator 1 (behavior unchanged).
+- **F3** — GTIN-14 down-conversion. New `gl_gtin.to_gtin13/1` and
+  `gl_gtin.to_gtin12/1` reduce an indicator-0 GTIN-14 back to its base GTIN-13
+  or (when the base is a UPC-A) GTIN-12 trade item.
+- **F4** — Structured parse. New `gl_gtin.parse/1` returns the new `GtinInfo`
+  record (new module `gl_gtin/parse`) decomposing a GTIN into `format`,
+  `digits`, `indicator`, `gs1_prefix`, `gs1_region`, and `check_digit`.
+
+### Changed
+
+- Internal refactor: the public `GtinError` and `GtinFormat` types are now
+  defined in `gl_gtin/gtin_types` and re-exported from `gl_gtin`. The types
+  `gl_gtin.GtinError` and `gl_gtin.GtinFormat` are unchanged (type identity is
+  preserved), but their variant constructors are now imported from
+  `gl_gtin/gtin_types`. Downstream code that constructs or pattern-matches these
+  error/format VARIANT CONSTRUCTORS may need to import them from
+  `gl_gtin/gtin_types`; code that only refers to the types themselves is
+  unaffected.
+
 ## [3.0.0] - 2026-09-26
 
 Bugfix release for the GS1 prefix and normalization subsystem. The prefix
