@@ -46,6 +46,7 @@ import gl_gtin/gtin_types.{
 import gl_gtin/parse as parse_mod
 import gl_gtin/upc
 import gl_gtin/validation
+import gleam/list
 import gleam/result
 
 /// Supported GTIN formats based on digit count.
@@ -118,6 +119,47 @@ pub fn validate(code: String) -> Result(GtinFormat, GtinError) {
       validation.InvalidFormat -> InvalidFormat
     }
   })
+}
+
+/// Validate a batch of GTIN code strings, pairing each original input with its
+/// validation result.
+///
+/// Applies `validate` to every element and returns a list of
+/// `#(original_code, result)` pairs in the same order as the input. The tuple
+/// key is the byte-for-byte original string (untrimmed); duplicates and empty
+/// lists are preserved. This helper is total — a malformed element yields an
+/// `Error(...)` pair rather than a crash.
+///
+/// # Examples
+///
+/// ```gleam
+/// validate_all(["6291041500213", "6291041500214"])
+/// // -> [#("6291041500213", Ok(Gtin13)), #("6291041500214", Error(InvalidCheckDigit))]
+/// ```
+pub fn validate_all(
+  codes: List(String),
+) -> List(#(String, Result(GtinFormat, GtinError))) {
+  list.map(codes, fn(code) { #(code, validate(code)) })
+}
+
+/// Partition a batch of GTIN code strings into valid and invalid groups.
+///
+/// Returns a `#(valid, invalid)` 2-tuple: the first list holds every element
+/// for which `validate` returns `Ok`, the second holds every element for which
+/// it returns `Error`. Each element is stored as the byte-for-byte original
+/// string (untrimmed), relative order is preserved within each list, duplicates
+/// are kept, and the two lists together contain every input element exactly
+/// once. This helper is total — a malformed element is routed to the invalid
+/// list rather than causing a crash.
+///
+/// # Examples
+///
+/// ```gleam
+/// partition(["6291041500213", "6291041500214"])
+/// // -> #(["6291041500213"], ["6291041500214"])
+/// ```
+pub fn partition(codes: List(String)) -> #(List(String), List(String)) {
+  list.partition(codes, fn(code) { result.is_ok(validate(code)) })
 }
 
 /// Generate a complete GTIN with calculated check digit.

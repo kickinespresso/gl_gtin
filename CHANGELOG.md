@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-09-29
+
+Additive Tier 2 feature release (F9). Both new public functions are additive:
+no new types or error variants, no existing public signature or return type
+changes, and the `Gtin` type stays opaque.
+
+### Added
+
+- **F9** — String-first batch helpers on the public facade (`gl_gtin`). Two new
+  total functions compose the existing `validate` engine:
+  - `gl_gtin.validate_all/1` — applies `validate` to every element of a list and
+    returns `#(original_code, result)` pairs in input order. Keys are the
+    byte-for-byte untrimmed inputs, and duplicates and empty lists are preserved.
+  - `gl_gtin.partition/1` — splits a list of codes into a `#(valid, invalid)`
+    tuple by validation outcome, preserving relative order within each list and
+    conserving every input element exactly once.
+
 ## [3.1.0] - 2026-09-26
 
 Additive Tier 1 feature release (F0–F4). All new public functions are additive:
