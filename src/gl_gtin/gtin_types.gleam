@@ -35,4 +35,35 @@ pub type GtinError {
   NoGs1PrefixFound
   /// Operation not applicable to this GTIN format.
   InvalidFormat
+  /// Key-specific structural failure: a GS1 key (e.g. a variable-serial
+  /// `Grai`/`Giai`) whose length and check digit are plausible but whose
+  /// component structure is malformed. Distinct from `InvalidFormat`, which
+  /// remains reserved for GTIN format-conversion failures.
+  InvalidKeyFormat
+}
+
+/// The supported GS1 identification keys.
+///
+/// Defined here (rather than in the `gl_gtin` facade) so that the internal
+/// `gl_gtin/gs1_key` module can import the type and its variants without
+/// importing the facade, which would create an import cycle once the facade
+/// delegates its F5/F6/F7 wrappers to `gl_gtin/gs1_key`. The facade re-exports
+/// this type via the alias `gl_gtin.Gs1Key`, so the public type name is
+/// unchanged; consumers import the variants from here, e.g.
+/// `import gl_gtin/gtin_types.{Sscc, Gsin}`.
+///
+/// Each variant selects a key kind for `validate_key`/`generate_key` and is
+/// associated with its length and format rules internally, so two keys sharing
+/// the same digit length (e.g. `Sscc` and `Gsrn`, both 18 digits) are
+/// distinguished by their `Gs1Key` value rather than by length alone.
+pub type Gs1Key {
+  Gtin
+  Gln
+  Sscc
+  Gsin
+  Grai
+  Giai
+  Gsrn
+  Gdti
+  Gcn
 }

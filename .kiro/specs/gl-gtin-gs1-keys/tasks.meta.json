@@ -1,0 +1,379 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 Confirm the residual open-question key boundaries against the GS1 General Specifications": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544367
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685555001
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685670623
+      }
+    ],
+    "1.2 Add the `qcheck` dev-dependency and generator helper module": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544418
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685675239
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685802129
+      }
+    ],
+    "2.1 Add the public `Gs1Key` type and the `InvalidKeyFormat` error variant": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544451
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685555768
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685671362
+      }
+    ],
+    "3.1 Define the internal types and the `key_spec` table": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544481
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685677488
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685802951
+      }
+    ],
+    "4.1 Implement the private helpers": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544523
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685806331
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685917930
+      }
+    ],
+    "4.2 Implement the generic `validate_key`": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544551
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685922180
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686005060
+      }
+    ],
+    "4.3 Implement the generic `generate_key`": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544578
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686005826
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686211053
+      }
+    ],
+    "4.4 Write generic-key property tests": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544609
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686215215
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686369274
+      }
+    ],
+    "5. Checkpoint - generic key driver": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544639
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686949492
+      }
+    ],
+    "6.1 Implement the SSCC specializations": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544667
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686216231
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686370164
+      }
+    ],
+    "6.2 Implement the GSIN specializations": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544693
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686372856
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686454914
+      }
+    ],
+    "6.3 Write SSCC/GSIN round-trip and length-rejection property tests": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544725
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686458720
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686709571
+      }
+    ],
+    "7.1 Add the F5/F6/F7 facade wrappers mapping `KeyError` → `GtinError`": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544751
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686461156
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686710654
+      }
+    ],
+    "8.1 Write F5 (SSCC) unit and doc-comment example tests": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544783
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686715502
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686938692
+      }
+    ],
+    "8.2 Write F6 (GSIN) unit and doc-comment example tests": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544809
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686716442
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686940108
+      }
+    ],
+    "8.3 Write F7 (generic key) unit and doc-comment example tests": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544842
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686717914
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686941023
+      }
+    ],
+    "8.4 Write variable-serial `InvalidKeyFormat` tests (pending GS1 confirmation)": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544872
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686718954
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686942356
+      }
+    ],
+    "9. Checkpoint - features and tests": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544902
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686953418
+      }
+    ],
+    "10. Release discipline — CHANGELOG and full verification": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544935
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686958152
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790687044200
+      }
+    ],
+    "11. Final checkpoint": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685544967
+      },
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790687047480
+      }
+    ],
+    "2. Public surface — `Gs1Key` type and `GtinError` extension (`src/gl_gtin.gleam`)": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685671394
+      }
+    ],
+    "1. Confirm key specifications and set up property-testing infrastructure": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685802164
+      }
+    ],
+    "3. Internal module scaffold — `src/gl_gtin/gs1_key.gleam` (new)": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790685802991
+      }
+    ],
+    "4. Generic validate/generate driver (`src/gl_gtin/gs1_key.gleam`)": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686369305
+      }
+    ],
+    "6. F5 / F6 specializations (`src/gl_gtin/gs1_key.gleam`)": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686709604
+      }
+    ],
+    "7. Public facade wrappers (`src/gl_gtin.gleam`)": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686710692
+      }
+    ],
+    "8. Feature tests — unit and doc-comment examples (`test/gl_gtin/gs1_key_test.gleam`, new)": [
+      {
+        "executionId": "9f236dd0-8b13-430f-a5b2-61f0d933df77",
+        "chatSessionId": "sess_5bb61d5a-bd6d-4500-9856-b236286441ca",
+        "timestamp": 1790686942388
+      }
+    ]
+  }
+}

@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2026-09-30
+
+Additive Tier 2 feature release (F5, F6, F7) adding GS1 identification-key
+support to the public facade (`gl_gtin`). The `Gtin` type stays opaque and no
+existing public function signature or return type changes. One new error variant
+is added to `GtinError` (`InvalidKeyFormat`), which is a source-compatibility
+consideration for downstream callers — see the compatibility note below.
+
+### Added
+
+- **F5** — SSCC (Serial Shipping Container Code) support on the facade. Two new
+  functions validate and build the fixed 18-digit mod-10 key:
+  - `gl_gtin.validate_sscc/1` — validates an 18-digit SSCC string
+    (characters → length → check digit ordering).
+  - `gl_gtin.generate_sscc/1` — appends the mod-10 check digit to a 17-digit
+    body to produce a complete 18-digit SSCC.
+- **F6** — GSIN (Global Shipment Identification Number) support on the facade.
+  Two new functions validate and build the fixed 17-digit mod-10 key:
+  - `gl_gtin.validate_gsin/1` — validates a 17-digit GSIN string.
+  - `gl_gtin.generate_gsin/1` — appends the mod-10 check digit to a 16-digit
+    body to produce a complete 17-digit GSIN.
+- **F7** — Generic GS1-key driver on the facade, parameterized by the new public
+  `Gs1Key` type:
+  - `gl_gtin.validate_key/2` — validates a code string against a specified
+    `Gs1Key` kind, reading that kind's length and format rules internally.
+  - `gl_gtin.generate_key/2` — appends the mod-10 check digit to a body for a
+    specified `Gs1Key` kind.
+  - The public `Gs1Key` type (variants `Gtin`, `Gln`, `Sscc`, `Gsin`, `Grai`,
+    `Giai`, `Gsrn`, `Gdti`, `Gcn`) is re-exported from `gl_gtin` as
+    `gl_gtin.Gs1Key`, but its variant constructors are defined in and imported
+    from `gl_gtin/gtin_types`, e.g. `import gl_gtin/gtin_types.{Sscc, Gsin}`.
+    This mirrors the `GtinError`/`GtinFormat` convention introduced in [3.1.0].
+
+### Changed
+
+- A new `InvalidKeyFormat` variant is added to the public `GtinError` type
+  (defined in `gl_gtin/gtin_types`, re-exported as `gl_gtin.GtinError`). It
+  signals a key-specific structural failure and is distinct from `InvalidFormat`
+  (reserved for GTIN format-conversion failures).
+
+  **Compatibility note:** adding a variant is source-additive, so this is a minor
+  bump. Downstream callers that exhaustively `case` over `GtinError` will need to
+  add an `InvalidKeyFormat` arm to remain exhaustive; code that does not pattern
+  match all variants of `GtinError` is unaffected.
+
 ## [3.2.0] - 2026-09-29
 
 Additive Tier 2 feature release (F9). Both new public functions are additive:

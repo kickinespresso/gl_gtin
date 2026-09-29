@@ -1,5 +1,5 @@
 name = "gl_gtin"
-version = "3.2.0"
+version = "3.3.0"
 description = "A Gleam library for validating and generating GTIN (Global Trade Item Number) codes according to GS1 specification."
 licenses = ["MIT"]
 repository = { type = "github", user = "kickinespresso", repo = "gl_gtin" }

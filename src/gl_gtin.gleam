@@ -29,6 +29,7 @@
 //// ```
 
 import gl_gtin/check_digit
+import gl_gtin/gs1_key
 import gl_gtin/gs1_prefix
 
 // Re-export the shared public types `GtinFormat` and `GtinError` and bring
@@ -41,7 +42,7 @@ import gl_gtin/gs1_prefix
 // `import gl_gtin/gtin_types.{Gtin13, InvalidFormat}`.
 import gl_gtin/gtin_types.{
   Gtin12, Gtin13, Gtin14, Gtin8, InvalidCharacters, InvalidCheckDigit,
-  InvalidFormat, InvalidLength, NoGs1PrefixFound,
+  InvalidFormat, InvalidKeyFormat, InvalidLength, NoGs1PrefixFound,
 }
 import gl_gtin/parse as parse_mod
 import gl_gtin/upc
@@ -73,12 +74,28 @@ pub type GtinError =
 pub type GtinInfo =
   parse_mod.GtinInfo
 
+/// The supported GS1 identification keys.
+///
+/// This is a re-export of `gl_gtin/gtin_types.Gs1Key`. The type is defined in
+/// `gl_gtin/gtin_types` so that `gl_gtin/gs1_key` can import it without
+/// importing this facade (which would create an import cycle once the facade
+/// delegates its F5/F6/F7 wrappers to `gl_gtin/gs1_key`). Import the variants
+/// from the owning module — `import gl_gtin/gtin_types.{Sscc, Gsin, Gln}` — to
+/// construct or pattern-match on them.
+///
+/// Note: the `Gtin` variant shares its name with the opaque `Gtin` type. In
+/// Gleam types and value constructors live in separate namespaces, so this is
+/// unambiguous — the variant is the key kind, the type is the validated-GTIN
+/// value.
+pub type Gs1Key =
+  gtin_types.Gs1Key
+
 /// A validated GTIN code.
 ///
 /// This is an opaque type that can only be constructed through validation.
 /// This ensures that any Gtin value in your code is guaranteed to be valid.
 pub opaque type Gtin {
-  Gtin(value: String, format: GtinFormat)
+  GtinValue(value: String, format: GtinFormat)
 }
 
 /// Validate a GTIN code string.
@@ -408,7 +425,7 @@ pub fn parse(code: String) -> Result(GtinInfo, GtinError) {
 /// ```
 pub fn from_string(code: String) -> Result(Gtin, GtinError) {
   use format <- result.try(validate(code))
-  Ok(Gtin(code, format))
+  Ok(GtinValue(code, format))
 }
 
 /// Extract the string value from a Gtin.
@@ -421,7 +438,7 @@ pub fn from_string(code: String) -> Result(Gtin, GtinError) {
 /// // -> "6291041500213"
 /// ```
 pub fn to_string(gtin: Gtin) -> String {
-  let Gtin(value, _) = gtin
+  let GtinValue(value, _) = gtin
   value
 }
 
@@ -435,6 +452,160 @@ pub fn to_string(gtin: Gtin) -> String {
 /// // -> Gtin13
 /// ```
 pub fn format(gtin: Gtin) -> GtinFormat {
-  let Gtin(_, fmt) = gtin
+  let GtinValue(_, fmt) = gtin
   fmt
+}
+
+/// Map the internal `gs1_key.KeyError` to the public `GtinError`.
+///
+/// The single boundary translation shared by the F5/F6/F7 wrappers:
+/// `InvalidLength` → `InvalidLength`, `InvalidCheckDigit` → `InvalidCheckDigit`,
+/// `InvalidCharacters` → `InvalidCharacters`, `InvalidKeyFormat` →
+/// `InvalidKeyFormat`. Mirrors the `result.map_error` pattern used by the
+/// existing `validate`/`normalize` wrappers.
+fn map_key_error(err: gs1_key.KeyError) -> GtinError {
+  case err {
+    gs1_key.InvalidLength(got) -> InvalidLength(got)
+    gs1_key.InvalidCheckDigit -> InvalidCheckDigit
+    gs1_key.InvalidCharacters -> InvalidCharacters
+    gs1_key.InvalidKeyFormat -> InvalidKeyFormat
+  }
+}
+
+/// Validate an 18-digit SSCC (Serial Shipping Container Code) string.
+///
+/// Thin facade over `gl_gtin/gs1_key.validate_sscc`, mapping the internal
+/// `KeyError` to the public `GtinError`. On success it returns the string tag
+/// `Ok("SSCC")`. The defect ordering is characters → digit count (must be 18) →
+/// check digit; only the first failing rule is reported. A valid 14-digit
+/// GTIN-14 fails the length check with `Error(InvalidLength(got: 14))`, never
+/// `Ok("SSCC")`, and an empty/whitespace-only input returns
+/// `Error(InvalidLength(got: 0))`.
+///
+/// # Examples
+///
+/// ```gleam
+/// validate_sscc("106141415432109873")
+/// // -> Ok("SSCC")
+///
+/// validate_sscc("00000000000000")
+/// // -> Error(InvalidLength(got: 14))
+/// ```
+pub fn validate_sscc(code: String) -> Result(String, GtinError) {
+  gs1_key.validate_sscc(code)
+  |> result.map_error(map_key_error)
+}
+
+/// Generate a complete 18-digit SSCC from a 17-digit body.
+///
+/// Thin facade over `gl_gtin/gs1_key.generate_sscc`, mapping the internal
+/// `KeyError` to the public `GtinError`. It appends the mod-10 check digit
+/// computed by the check-digit engine. The defect ordering is characters → body
+/// length (must be 17); a body of the wrong length returns
+/// `Error(InvalidLength(got: n))`.
+///
+/// # Examples
+///
+/// ```gleam
+/// generate_sscc("10614141543210987")
+/// // -> Ok("106141415432109873")
+///
+/// generate_sscc("1061414154321098")
+/// // -> Error(InvalidLength(got: 16))
+/// ```
+pub fn generate_sscc(body: String) -> Result(String, GtinError) {
+  gs1_key.generate_sscc(body)
+  |> result.map_error(map_key_error)
+}
+
+/// Validate a 17-digit GSIN (Global Shipment Identification Number) string.
+///
+/// Thin facade over `gl_gtin/gs1_key.validate_gsin`, mapping the internal
+/// `KeyError` to the public `GtinError`. On success it returns the string tag
+/// `Ok("GSIN")`. The defect ordering is characters → digit count (must be 17) →
+/// check digit; only the first failing rule is reported. A valid 18-digit SSCC
+/// fails the length check with `Error(InvalidLength(got: 18))`, never
+/// `Ok("GSIN")`, and an empty/whitespace-only input returns
+/// `Error(InvalidLength(got: 0))`.
+///
+/// # Examples
+///
+/// ```gleam
+/// validate_gsin("10614141543210986")
+/// // -> Ok("GSIN")
+///
+/// validate_gsin("106141415432109873")
+/// // -> Error(InvalidLength(got: 18))
+/// ```
+pub fn validate_gsin(code: String) -> Result(String, GtinError) {
+  gs1_key.validate_gsin(code)
+  |> result.map_error(map_key_error)
+}
+
+/// Generate a complete 17-digit GSIN from a 16-digit body.
+///
+/// Thin facade over `gl_gtin/gs1_key.generate_gsin`, mapping the internal
+/// `KeyError` to the public `GtinError`. It appends the mod-10 check digit
+/// computed by the check-digit engine. The defect ordering is characters → body
+/// length (must be 16); a body of the wrong length returns
+/// `Error(InvalidLength(got: n))`.
+///
+/// # Examples
+///
+/// ```gleam
+/// generate_gsin("1061414154321098")
+/// // -> Ok("10614141543210986")
+///
+/// generate_gsin("106141415432109")
+/// // -> Error(InvalidLength(got: 15))
+/// ```
+pub fn generate_gsin(body: String) -> Result(String, GtinError) {
+  gs1_key.generate_gsin(body)
+  |> result.map_error(map_key_error)
+}
+
+/// Validate a code against a specific `Gs1Key` kind.
+///
+/// Thin facade over `gl_gtin/gs1_key.validate_key`, mapping the internal
+/// `KeyError` to the public `GtinError`. On success it returns `Ok(key)` — the
+/// supplied `Gs1Key` value. The defect ordering is characters → digit count →
+/// check digit → key-specific structural format; only the first failing rule is
+/// reported. Each call validates only against the kind passed in, so two codes
+/// of the same length valid for different kinds are each judged solely against
+/// their supplied kind.
+///
+/// # Examples
+///
+/// ```gleam
+/// validate_key(Gln, "0614141000012")
+/// // -> Ok(Gln)
+///
+/// validate_key(Gln, "0614141000013")
+/// // -> Error(InvalidCheckDigit)
+/// ```
+pub fn validate_key(key: Gs1Key, code: String) -> Result(Gs1Key, GtinError) {
+  gs1_key.validate_key(key, code)
+  |> result.map_error(map_key_error)
+}
+
+/// Generate a complete GS1 key string of a specific `Gs1Key` kind from a body.
+///
+/// Thin facade over `gl_gtin/gs1_key.generate_key`, mapping the internal
+/// `KeyError` to the public `GtinError`. It appends the mod-10 check digit
+/// computed by the check-digit engine (except for `Giai`, which has no
+/// key-level check digit). The defect ordering is characters → body length →
+/// key-specific format; only the first failing rule is reported.
+///
+/// # Examples
+///
+/// ```gleam
+/// generate_key(Sscc, "10614141543210987")
+/// // -> Ok("106141415432109873")
+///
+/// generate_key(Gsin, "1061414154321098")
+/// // -> Ok("10614141543210986")
+/// ```
+pub fn generate_key(key: Gs1Key, body: String) -> Result(String, GtinError) {
+  gs1_key.generate_key(key, body)
+  |> result.map_error(map_key_error)
 }
