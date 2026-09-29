@@ -3,19 +3,22 @@ name: test
 on:
   push:
     branches:
-      - master
       - main
   pull_request:
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        gleam: ["1.18.0"]
+        otp: ["27", "28"]
     steps:
       - uses: actions/checkout@v4
       - uses: erlef/setup-beam@v1
         with:
-          otp-version: "28"
-          gleam-version: "1.13.0"
+          otp-version: ${{ matrix.otp }}
+          gleam-version: ${{ matrix.gleam }}
           rebar3-version: "3"
           # elixir-version: "1"
       - run: gleam deps download

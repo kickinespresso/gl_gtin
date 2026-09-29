@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------------------
+# DRAFT — NOT ENABLED
+#
+# This workflow is intentionally disabled. GitHub Actions only runs workflow
+# files ending in `.yml` / `.yaml`, and this file ends in `.yml.disabled`, so
+# Actions ignores it entirely.
+#
+# To enable publishing later:
+#   1. Rename this file to `publish.yml`.
+#   2. Add a repository secret named `HEXPM_API_KEY` containing a Hex API key
+#      with publish rights (generate via `gleam hex authenticate` or on hex.pm).
+#   3. Push a version tag, e.g. `git tag v3.2.0 && git push origin v3.2.0`.
+#
+# The `workflow_dispatch` trigger is included so that, once enabled, you can
+# also publish manually from the Actions tab. `on: [push tags]` handles the
+# automatic tag-based release.
+# ---------------------------------------------------------------------------
+
+name: publish
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28"
+          gleam-version: "1.18.0"
+          rebar3-version: "3"
+      - run: gleam deps download
+      - run: gleam test
+      - run: gleam format --check src test
+      - name: Publish to Hex
+        run: gleam publish --yes
+        env:
+          HEXPM_API_KEY: ${{ secrets.HEXPM_API_KEY }}
