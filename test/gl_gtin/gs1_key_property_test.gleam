@@ -8,7 +8,9 @@
 
 import gl_gtin/gs1_key.{InvalidCharacters, InvalidLength}
 import gl_gtin/gs1_key_generators
-import gl_gtin/gtin_types.{type Gs1Key, Gln, Gsin, Gsrn, Gtin, Sscc}
+import gl_gtin/gtin_types.{
+  type Gs1Key, Gcn, Gdti, Giai, Gln, Grai, Gsin, Gsrn, Gtin, Sscc,
+}
 import gleam/int
 import gleam/list
 import gleam/string
@@ -24,28 +26,19 @@ fn config() -> qcheck.Config {
 
 /// The kinds that round-trip cleanly through `generate_key → validate_key`.
 ///
-/// GRAI/GDTI/GCN/GIAI are DELIBERATELY EXCLUDED from the strict round-trip
-/// because the generic driver's `parse_body_digits` is digit-only, while the
-/// variable-serial keys carry alphanumeric bodies:
+/// ALL nine kinds now round-trip. The reworked driver splits the variable-serial
+/// keys into a numeric base (carrying the mod-10 check on its last digit) and an
+/// optional typed serial, so `gen_key_body(kind)` produces a body every kind can
+/// round-trip:
 ///
-/// - GRAI: `generate_key` runs `check_format(GraiRule, _)` on the *body* — before
-///   the mod-10 check digit is appended — so a pre-check-digit body cannot
-///   satisfy `GraiRule`, which requires the first 13 digits to already form a
-///   valid mod-10 key. This is the documented format-check tension from task 4.3.
-/// - GDTI: the confirmed serial charset is alphanumeric, so a generated GDTI body
-///   trips the digit-only `parse_body_digits` with `InvalidCharacters`.
-/// - GIAI: the confirmed body is 1..30 *alphanumeric* characters with no
-///   key-level check digit, so an alphanumeric body is likewise rejected by
-///   `parse_body_digits` before it can round-trip.
-/// - GCN: excluded alongside the other variable-serial keys pending the same GS1
-///   confirmation of whether the format/charset check should run pre- or
-///   post-check-digit (task 8.4).
-///
-/// Rather than force a failing property, these kinds are held out here and the
-/// round-trip is asserted over the kinds that round-trip cleanly: the fixed
-/// numeric keys plus GTIN.
+/// - GTIN / GLN / SSCC / GSIN / GSRN: fixed numeric keys — the body is all
+///   digits and the mod-10 check is appended over the full length.
+/// - GRAI / GDTI: a 12-digit base body plus an ALPHANUMERIC serial; the check is
+///   appended over the base body and the serial is carried through verbatim.
+/// - GCN: a 12-digit base body plus a NUMERIC serial (same base handling).
+/// - GIAI: a freeform 1..30 alphanumeric body returned verbatim (no check digit).
 fn round_trip_kinds() -> List(Gs1Key) {
-  [Gtin, Gln, Sscc, Gsin, Gsrn]
+  [Gtin, Gln, Sscc, Gsin, Gsrn, Grai, Giai, Gdti, Gcn]
 }
 
 /// Generate a `(kind, body)` pair whose `kind` is one of the clean round-trip
@@ -68,9 +61,9 @@ fn gen_kind_and_body() -> qcheck.Generator(#(Gs1Key, String)) {
 // generating a key and validating it under the same kind returns the kind:
 // `validate_key(k, generate_key(k, b)) == Ok(k)`.
 //
-// Covered kinds: Gtin, Gln, Sscc, Gsin, Gsrn. GRAI/GDTI/GCN/GIAI are excluded
-// (see `round_trip_kinds` — the digit-only driver vs. alphanumeric bodies and
-// the task 4.3 format-check tension, pending task 8.4).
+// Covered kinds: all nine — Gtin, Gln, Sscc, Gsin, Gsrn, Grai, Giai, Gdti, Gcn.
+// The reworked base/serial driver lets the variable-serial kinds round-trip via
+// `gen_key_body` (see `round_trip_kinds`).
 pub fn generic_key_generate_validate_round_trip_test() {
   use pair <- qcheck.run(config(), gen_kind_and_body())
   let #(kind, body) = pair

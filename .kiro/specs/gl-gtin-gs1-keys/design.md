@@ -62,22 +62,41 @@ specification table, and the shared validate/generate machinery.
   no structural component rules, so routing them through the generic driver
   removes duplicated length/character/check-digit logic and guarantees F5/F6 and
   the F7 `Sscc`/`Gsin` paths never diverge. (Req 9.2, 9.3)
-- The `Gs1Key` **type is defined in `gl_gtin.gleam`** (the public facade) so it is
-  part of the public API surface, and `gs1_key.gleam` imports it. All public
-  entry points remain in `gl_gtin.gleam` as thin wrappers that map the internal
-  error type to `GtinError`.
+- The `Gs1Key` **type is defined in `gl_gtin/gtin_types.gleam`** and
+  **re-exported from the `gl_gtin` facade** via `pub type Gs1Key =
+  gtin_types.Gs1Key`, so the public name `gl_gtin.Gs1Key` is unchanged. All
+  public entry points remain in `gl_gtin.gleam` as thin wrappers that map the
+  internal error type to `GtinError`.
+
+  > **Implementation note (revised during task execution).** The type was
+  > originally slated to live in the facade. That created an import cycle
+  > `gl_gtin → gs1_key → gl_gtin`: the facade delegates its F5/F6/F7 wrappers to
+  > `gl_gtin/gs1_key`, which needs the `Gs1Key` type and its variants, but
+  > `gs1_key` cannot import the facade without a cycle. Gleam also cannot
+  > re-export value constructors through a type alias, so a facade-defined type
+  > could not expose its variants to `gs1_key` cleanly. The resolution: the
+  > `Gs1Key` type **and its nine variants** live in the shared leaf module
+  > `gl_gtin/gtin_types.gleam` — which already owns `GtinError`/`GtinFormat` — and
+  > is imported by both the facade and `gs1_key` without a cycle. Consumers import
+  > the variants from `gl_gtin/gtin_types` (e.g. `import gl_gtin/gtin_types.{Sscc,
+  > Gsin}`), mirroring the existing `GtinError`/`GtinFormat` convention.
 
 ```mermaid
 graph TD
   subgraph Facade["gl_gtin.gleam (public facade)"]
-    T_key["type Gs1Key (public)"]
-    T_err["type GtinError (+ InvalidKeyFormat)"]
+    T_key["type Gs1Key = gtin_types.Gs1Key (re-export)"]
+    T_err["type GtinError = gtin_types.GtinError (+ InvalidKeyFormat)"]
     P_vs[validate_sscc]
     P_gs[generate_sscc]
     P_vg[validate_gsin]
     P_gg[generate_gsin]
     P_vk[validate_key]
     P_gk[generate_key]
+  end
+
+  subgraph Types["gl_gtin/gtin_types.gleam (shared leaf types)"]
+    TT_key["type Gs1Key (owns the 9 variants)"]
+    TT_err["type GtinError (+ InvalidKeyFormat)"]
   end
 
   subgraph Gs1KeyMod["gl_gtin/gs1_key.gleam (F5/F6/F7, new)"]
@@ -88,7 +107,6 @@ graph TD
     K_gs[generate_sscc]
     K_vg[validate_gsin]
     K_gg[generate_gsin]
-    K_fmt["check_format (variable-serial rules)"]
   end
 
   subgraph CheckDigit["gl_gtin/check_digit.gleam (F0 engine, prerequisite)"]
@@ -100,6 +118,11 @@ graph TD
   subgraph Utils["gl_gtin/internal/utils.gleam"]
     UT_pd[parse_digit]
   end
+
+  T_key --> TT_key
+  T_err --> TT_err
+  K_vk --> TT_key
+  K_gk --> TT_key
 
   P_vs --> K_vs
   P_gs --> K_gs
@@ -117,8 +140,6 @@ graph TD
   K_gk --> K_spec
   K_vk --> CD_valid
   K_gk --> CD_append
-  K_vk --> K_fmt
-  K_gk --> K_fmt
   K_vk --> UT_pd
   K_gk --> UT_pd
   CD_valid --> CD_calc
@@ -127,84 +148,140 @@ graph TD
 
 ## Key Specification Table
 
-Each `Gs1Key` variant maps to a `KeySpec` describing its **total length** (digits
-including the check digit), its **body length** (digits supplied to a generator,
-excluding the check digit = total − 1), and an optional **structural format rule**
-for keys whose length alone is insufficient to validate.
+Each `Gs1Key` variant maps to a `KeySpec` describing its **total length** (for
+numeric keys, digits including the check digit), its **body length** (characters
+supplied to a generator), and, for base-plus-serial keys, the serial's maximum
+length and charset. The `KeySpec` shape itself selects the validate/generate
+behavior, so no separate structural-format rule tag is needed.
 
 The table is the single source of truth. It is structured so a length or boundary
 can be corrected by editing one row without touching the validate/generate
-algorithm. Every length/boundary the roadmap does not fully pin down is recorded
-below with a status flag and a citation to the **GS1 General Specifications** (the
-authoritative external reference; reference material, not a runtime service —
-Requirement 10.6).
+algorithm. Every length/boundary is confirmed against the **GS1 General
+Specifications** (the authoritative external reference; reference material, not a
+runtime service — Requirement 10.6) and carries a status flag.
 
-| `Gs1Key` | Total length | Body length | Structural rule | Status | Notes / open question (confirm vs GS1 General Specifications) |
+| `Gs1Key` | Total length | Body length | Structural rule | Status | Notes (confirmed vs GS1 General Specifications) |
 |----------|-------------:|------------:|-----------------|--------|---------------------------------------------------------------|
 | `Gtin`   | 8/12/13/14   | 7/11/12/13  | none (mod-10)   | confirmed | Delegates to existing GTIN validation lengths. Multi-length; the only variant whose spec is a length *set*. |
 | `Gln`    | 13           | 12          | none (mod-10)   | confirmed | GLN is a 13-digit key (12-digit body + mod-10 check). Confirmed against the GS1 General Specifications. (Req 10.3) |
 | `Sscc`   | 18           | 17          | none (mod-10)   | confirmed | AI (00). Extension digit + company prefix + serial reference + mod-10 check = 18 digits. Confirmed against the GS1 General Specifications. (Req 10.3) |
 | `Gsin`   | 17           | 16          | none (mod-10)   | confirmed | AI (402). Company prefix + shipper reference + mod-10 check = 17 digits. Confirmed against the GS1 General Specifications. (Req 10.3) |
 | `Gsrn`   | 18           | 17          | none (mod-10)   | confirmed | AI (8018). 18-digit numeric key (17-digit body + mod-10 check). Confirmed against the GS1 General Specifications. (Req 10.3) |
-| `Grai`   | 13 + serial  | 12 + serial | 13-digit numeric base (GS1 company prefix + asset type + mod-10 check on position 13) + optional serial up to 16 alphanumeric chars | open question | **Design assumption (revised):** GRAI (AI 8003) = a 13-digit numeric base carrying its own mod-10 check on the 13th digit, followed by an optional variable serial of up to 16 alphanumeric characters; total length alone is insufficient. Base length (13) and serial max (16 alphanumeric) confirmed against the GS1 General Specifications; the check applies to the 13-digit base only. Exact serial charset constraints (GS1 AI-charset subset) pending confirmation. (Req 10.4) |
-| `Giai`   | variable     | variable    | GS1 company prefix (numeric) + variable individual asset reference; no key-level check digit | open question | **Design assumption:** GIAI (AI 8004) = numeric GS1 company prefix followed by a variable-length individual asset reference, total up to 30 characters; no single fixed total length and no key-level check digit. Overall max length (30) confirmed against the GS1 General Specifications; exact company-prefix/reference boundary pending confirmation. (Req 10.4) |
-| `Gdti`   | 13 + serial  | 12 + serial | 13-digit base component (check applies to base only) + optional variable serial up to 17 digits | open question | **Design assumption:** GDTI (AI 253) = 13-digit document-type base plus optional variable serial of up to 17 digits; the check digit applies to the 13-digit base only. Base length (13) and serial max (17) confirmed against the GS1 General Specifications; serial charset (numeric) pending final confirmation. (Req 10.5) |
-| `Gcn`    | 13 + serial  | 12 + serial | 13-digit base component (check applies to base only) + optional variable serial up to 12 digits | open question | **Design assumption:** GCN (AI 255) = 13-digit base plus optional variable serial of up to 12 digits; the check digit applies to the 13-digit base only. Base length (13) and serial max (12) confirmed against the GS1 General Specifications. (Req 10.5) |
+| `Grai`   | 13 + serial  | 12 + serial | 13-digit numeric base (mod-10 check on the 13th digit) + optional serial up to 16 ALPHANUMERIC (CSET 82) chars | confirmed | **Confirmed (task 1.1):** GRAI (AI 8003) = a 13-digit numeric base carrying its own mod-10 check on the 13th digit, followed by an optional variable serial of 0..16 alphanumeric characters; total length alone is insufficient. Base 13, serial ≤ 16 alphanumeric, mod-10 on the base — all confirmed against the GS1 General Specifications. The exact CSET 82 punctuation subset is treated as a charset-membership predicate (digits + letters) and does not affect any length/boundary. (Req 10.4) |
+| `Giai`   | 1..30        | 1..30       | 1..30 alphanumeric characters; no key-level check digit | confirmed | **Confirmed (task 1.1):** GIAI (AI 8004) = 1..30 ALPHANUMERIC characters total, with NO key-level check digit and no fixed internal boundary the library can assert positionally. Overall length 1..30 alphanumeric confirmed against the GS1 General Specifications. The exact CSET 82 punctuation subset is treated as a charset-membership predicate (digits + letters). (Req 10.4) |
+| `Gdti`   | 13 + serial  | 12 + serial | 13-digit numeric base (mod-10 check on the 13th digit) + optional serial up to 17 ALPHANUMERIC chars | confirmed | **Confirmed (task 1.1):** GDTI (AI 253) = 13-digit document-type base plus optional variable serial of 0..17 ALPHANUMERIC characters; the check digit applies to the 13-digit base only. Base 13 and serial ≤ 17 confirmed against the GS1 General Specifications; the serial **charset was corrected from numeric to alphanumeric in task 1.1**. The exact CSET 82 punctuation subset is treated as a charset-membership predicate (digits + letters). (Req 10.5) |
+| `Gcn`    | 13 + serial  | 12 + serial | 13-digit numeric base (mod-10 check on the 13th digit) + optional serial up to 12 NUMERIC digits | confirmed | **Confirmed (task 1.1):** GCN (AI 255) = 13-digit base plus optional variable serial of 0..12 NUMERIC digits; the check digit applies to the 13-digit base only. Base 13 and serial ≤ 12 numeric confirmed against the GS1 General Specifications. Because the serial is numeric, GCN's union charset is digits-only. (Req 10.5) |
 
 Assumptions section satisfying Requirement 10:
 
 - **One labeled entry per variant, none omitted** (nine rows above), each carrying
-  exactly one status flag of "confirmed" or "open question". (Req 10.1, 10.2)
-- Length assumptions for `Sscc` (18), `Gsrn` (18), `Gsin` (17), `Gln` (13) are now
+  exactly one status flag — all nine are now "confirmed". (Req 10.1, 10.2)
+- Length assumptions for `Sscc` (18), `Gsrn` (18), `Gsin` (17), `Gln` (13) are
   **confirmed** against the GS1 General Specifications (each a single-length mod-10
   key). (Req 10.3)
-- `Grai` and `Giai` carry the variable-serial entry noting total length alone is
-  insufficient. GRAI's 13-digit base and 16-char serial max, and GIAI's 30-char
-  overall max, are confirmed; each remains flagged "open question" for the exact
-  component boundaries / serial charset pending the GS1 General Specifications.
-  (Req 10.4)
-- `Gdti` and `Gcn` carry the 13-digit-base-plus-optional-serial entry with the
-  check digit applying to the 13-digit base only (confirmed), and serial maxima of
-  17 (GDTI) and 12 (GCN) digits confirmed; GDTI's serial charset remains flagged
-  "open question" pending the GS1 General Specifications. (Req 10.5)
+- `Grai` and `Giai` are **confirmed** (task 1.1): GRAI is a 13-digit numeric base
+  (mod-10 on the base) plus an optional serial ≤ 16 alphanumeric characters; GIAI
+  is 1..30 alphanumeric characters with no key-level check digit. (Req 10.4)
+- `Gdti` and `Gcn` are **confirmed** (task 1.1): each is a 13-digit numeric base
+  with the mod-10 check applying to the base only, plus an optional serial — GDTI
+  ≤ 17 **alphanumeric** characters (charset corrected from numeric to alphanumeric
+  in task 1.1) and GCN ≤ 12 **numeric** digits. (Req 10.5)
 - The GS1 General Specifications is named as the authoritative external reference
   for every assumption and noted as reference material, not a runtime service.
   (Req 10.6)
+- The one remaining nuance is not a boundary: the exact CSET 82 punctuation subset
+  for alphanumeric serials is treated as a charset-membership predicate (digits +
+  letters) and does not affect any length or boundary in the table above.
 
 ### `KeySpec` representation
 
-To keep single-length keys, the multi-length `Gtin`, and variable-serial keys in
-one table without special-casing the algorithm, `KeySpec` carries a length rule
-and an optional format-rule tag:
+The shipped driver folds the length rule and the structural behavior into a single
+`KeySpec` whose **shape** selects the algorithm — there is no separate format-rule
+tag. Three shapes cover all nine kinds:
 
 ```gleam
-// Length rule for a key. FixedLen for single-length keys; OneOf for GTIN;
-// BasePlusSerial for base+optional-variable-serial keys; Variable for GIAI.
-pub type LengthRule {
-  FixedLen(total: Int)
-  OneOf(totals: List(Int))
-  BasePlusSerial(base_total: Int, serial_min: Int, serial_max: Int)
-  VariableLen(min_total: Int, max_total: Int)
+// The character set permitted in a base-plus-serial key's optional serial.
+pub type SerialCharset {
+  NumericSerial       // digits 0-9 only (GCN's serial)
+  AlphanumericSerial  // CSET 82, enforced as ASCII A-Z / a-z / 0-9 (GRAI/GDTI)
 }
 
-// Optional key-specific structural format rule, evaluated only after
-// character/length/check-digit rules pass.
-pub type FormatRule {
-  NoFormatRule
-  GraiRule
-  GiaiRule
-}
-
+// The per-key specification. INTERNAL — not part of the public API; may evolve.
 pub type KeySpec {
-  KeySpec(length: LengthRule, format: FormatRule)
+  // A full numeric key carrying the mod-10 check on its FULL length; total length
+  // is one of `lengths`. Covers Gtin (8/12/13/14), Gln (13), Sscc (18),
+  // Gsin (17), Gsrn (18).
+  NumericKey(lengths: List(Int))
+
+  // A numeric `base_total`-digit base carrying the mod-10 check on its LAST (base)
+  // digit, followed by an OPTIONAL serial of 0..serial_max characters drawn from
+  // `serial_charset`. Covers Grai (13 / 16 / alphanumeric),
+  // Gdti (13 / 17 / alphanumeric), Gcn (13 / 12 / numeric).
+  BaseSerialKey(base_total: Int, serial_max: Int, serial_charset: SerialCharset)
+
+  // A freeform alphanumeric key of total length `min_total..max_total` with NO
+  // key-level check digit. Covers Giai (1..30 alphanumeric).
+  FreeformKey(min_total: Int, max_total: Int)
 }
 ```
 
 The key-spec table (Requirement 5.2) is a single total function
 `key_spec(key: Gs1Key) -> KeySpec` — one exhaustive `case`, one row per variant.
 Correcting a length or boundary is a one-line edit to that function; the
-validate/generate driver reads `KeySpec` generically and never hard-codes a
-length. (Req 5.2)
+validate/generate driver matches on the `KeySpec` shape and never hard-codes a
+length or charset. These types are **internal** and may evolve. (Req 5.2)
+
+### Driver model: graphemes and charset predicates
+
+Both drivers work on **graphemes**: the input is `string.trim`med and then split
+with `string.to_graphemes`, so interior whitespace survives as a grapheme and is
+rejected by the charset predicates (an empty or whitespace-only input trims to the
+empty grapheme list). Three charset predicates gate the shapes:
+
+- `is_digit` — a single decimal digit `0`–`9`.
+- `is_alphanumeric` — ASCII `A`–`Z` / `a`–`z` / `0`–`9`, the practical CSET 82
+  membership predicate.
+- `in_serial_charset(charset, char)` — `is_digit` for `NumericSerial`,
+  `is_alphanumeric` for `AlphanumericSerial`.
+
+#### `validate_key` ordering per shape
+
+- **`NumericKey`** (Gtin/Gln/Sscc/Gsin/Gsrn): characters (all digits, else
+  `InvalidCharacters`) → length (count in `lengths`, else `InvalidLength(got:
+  count)`) → mod-10 on the full length via the F0 engine (else
+  `InvalidCheckDigit`) → `Ok`. No structural format stage.
+- **`BaseSerialKey`** (Grai/Gdti/Gcn): characters against the **union charset**
+  (a digit OR a serial-charset member, else `InvalidCharacters`) → length (total
+  in `[base_total .. base_total + serial_max]`, else `InvalidLength(got: total)`)
+  → mod-10 on the **base** (the first `base_total` digits, else
+  `InvalidCheckDigit`) → structural format. The **reachable `InvalidKeyFormat`
+  trigger** is a string that passes the union charset AND the length rule but
+  carries a NON-DIGIT (letter) inside the numeric base region — only possible for
+  the alphanumeric-serial keys GRAI/GDTI. This is distinct from
+  `InvalidCharacters` (a character outside the union charset) and from
+  `InvalidCheckDigit` (an all-digit base with the wrong 13th digit). GCN's serial
+  is numeric, so its union charset is digits-only and `InvalidKeyFormat` is **not
+  reachable** for GCN — a letter is caught earlier as `InvalidCharacters`.
+- **`FreeformKey`** (Giai): characters (all alphanumeric, else
+  `InvalidCharacters`) → length (`1..30`, else `InvalidLength(got: count)`) → no
+  check digit → `Ok`. No `InvalidKeyFormat` path.
+
+#### `generate_key` ordering per shape (mirror)
+
+- **`NumericKey`**: body must be all digits; body length is `total − 1` (one of
+  `[l - 1 for l in lengths]`); the F0 engine appends the mod-10 check over the
+  whole body.
+- **`BaseSerialKey`**: body = a base body (the first `base_total − 1` digits) plus
+  an optional serial; body length in `[base_total − 1 .. base_total − 1 +
+  serial_max]`. `InvalidKeyFormat` is raised when a letter falls within the
+  base-body region (GRAI/GDTI). The mod-10 check is appended over the base body,
+  then the serial is concatenated after it.
+- **`FreeformKey`** (Giai): alphanumeric body `1..30` returned verbatim, no check
+  digit.
+
+The **round-trip guarantee** (Req 7.5) now holds for **all nine kinds**: for every
+kind and every body valid for that kind,
+`validate_key(key, generate_key(key, body))` returns `Ok(key)`.
 
 ## Components and Interfaces
 
@@ -213,18 +290,10 @@ Signatures use exact Gleam syntax. "New" marks additions.
 ### Public facade — `gl_gtin.gleam`
 
 ```gleam
-// New public type enumerating the supported GS1 keys. (Req 5.1)
-pub type Gs1Key {
-  Gtin
-  Gln
-  Sscc
-  Gsin
-  Grai
-  Giai
-  Gsrn
-  Gdti
-  Gcn
-}
+// New public GS1-key type, RE-EXPORTED from gl_gtin/gtin_types via a type alias
+// so the public name gl_gtin.Gs1Key is unchanged. The nine variants are owned by
+// gl_gtin/gtin_types; consumers import them from there. (Req 5.1)
+pub type Gs1Key = gtin_types.Gs1Key
 
 // F5 — SSCC. Returns Ok("SSCC") on success. (Req 1, 2)
 pub fn validate_sscc(code: String) -> Result(String, GtinError)
@@ -243,20 +312,18 @@ Each wrapper delegates to `gs1_key.*` and maps the internal error to `GtinError`
 via `result.map_error`, exactly as the existing `validate`/`normalize` wrappers
 do. All existing public functions and types are unchanged. (Req 8.1)
 
-> **Note — `Gtin` name collision.** `Gs1Key` introduces a variant named `Gtin`,
-> while the module already has an opaque type `Gtin`. In Gleam a type and a value
-> constructor live in separate namespaces, so this compiles, but to avoid reader
-> confusion the design keeps the opaque type as `Gtin` and the `Gs1Key` variant as
-> `Gtin`; references in function signatures disambiguate by position (type vs
-> constructor). If the maintainer prefers, the opaque type may remain and the
-> enum variant is still legal — no rename is required by the requirements. This is
-> flagged for the implementer to confirm during task execution.
+> **Note — `Gtin` name collision.** `Gs1Key` (in `gl_gtin/gtin_types`) introduces
+> a variant named `Gtin`, while the facade already exposes an opaque type `Gtin`.
+> In Gleam a type and a value constructor live in separate namespaces, so this
+> compiles; the design keeps the opaque type as `Gtin` and the `Gs1Key` variant as
+> `Gtin`, and references disambiguate by position (type vs constructor). No rename
+> is required by the requirements.
 
 ### Internal module — `gl_gtin/gs1_key.gleam` (new)
 
 ```gleam
-import gl_gtin.{type Gs1Key}
-// (Gs1Key variants imported unqualified for the case tables.)
+import gl_gtin/gtin_types.{type Gs1Key, Gcn, Gdti, Giai, Gln, Grai, Gsin, Gsrn, Gtin, Sscc}
+// (Gs1Key and its variants are imported from gl_gtin/gtin_types for the case tables.)
 
 // Internal error type, mapped to GtinError at the facade.
 pub type KeyError {
@@ -264,6 +331,14 @@ pub type KeyError {
   InvalidCheckDigit
   InvalidCharacters
   InvalidKeyFormat
+}
+
+// Internal KeySpec shapes (see the KeySpec representation section). Not public.
+pub type SerialCharset { NumericSerial  AlphanumericSerial }
+pub type KeySpec {
+  NumericKey(lengths: List(Int))
+  BaseSerialKey(base_total: Int, serial_max: Int, serial_charset: SerialCharset)
+  FreeformKey(min_total: Int, max_total: Int)
 }
 
 // The per-key specification (Req 5.2). One exhaustive case, one row per variant.
@@ -285,52 +360,54 @@ pub fn generate_gsin(body: String) -> Result(String, KeyError)
 
 // --- private helpers ---
 
-// Trim, then parse every character to a digit; Error(InvalidCharacters) on any
-// non-digit (interior whitespace included). Reuses utils.parse_digit.
-fn parse_body_digits(code: String) -> Result(List(Int), KeyError)
+// Trim then split into graphemes (string.trim |> string.to_graphemes); interior
+// whitespace survives as a grapheme and is later rejected by the charset checks.
+fn graphemes_of(code: String) -> List(String)
 
-// Check a trimmed digit count against a LengthRule; Error(InvalidLength(got: n)).
-fn check_length(rule: LengthRule, count: Int) -> Result(Nil, KeyError)
-
-// Apply a FormatRule to the already-length-and-check-valid digit list.
-// NoFormatRule -> Ok(Nil); GraiRule/GiaiRule -> structural checks, else
-// Error(InvalidKeyFormat). Evaluated last in the ordering. (Req 6.7, 7.4)
-fn check_format(rule: FormatRule, digits: List(Int)) -> Result(Nil, KeyError)
+// Charset predicates: single decimal digit; ASCII alphanumeric (the practical
+// CSET 82 membership predicate); and a SerialCharset membership test.
+fn is_digit(char: String) -> Bool
+fn is_alphanumeric(char: String) -> Bool
+fn in_serial_charset(charset: SerialCharset, char: String) -> Bool
 ```
 
-Design notes:
+Design notes (the drivers dispatch on the `KeySpec` shape):
 
 - **`validate_key`** flow (Req 6.1, 6.3–6.6):
-  1. `string.trim` the code.
-  2. `parse_body_digits` — any non-digit (incl. interior whitespace) →
-     `InvalidCharacters`. Empty/whitespace-only trims to length 0 and continues to
-     the length check, which yields `InvalidLength(got: 0)`. (Req 6.3, and the
-     empty cases in 1.6/3.6 for the SSCC/GSIN specializations)
-  3. `check_length(spec.length, count)` — mismatch → `InvalidLength(got: n)` with
-     `n` = trimmed digit count. (Req 6.4)
-  4. Check digit via **F0 `check_digit.valid(digits)`** — `False` →
-     `InvalidCheckDigit`. (Req 6.5, 9.3)
-  5. `check_format(spec.format, digits)` — variable-serial structural failure →
-     `InvalidKeyFormat`. (Req 6.7)
-  6. On all passing, `Ok(key)` — the supplied `Gs1Key` value. (Req 6.1)
-  Because each call validates only against the `Gs1Key` passed in, two identical-
-  length codes valid for different kinds are each judged solely against their
-  supplied kind. (Req 6.8)
+  1. `graphemes_of` the code (trim → graphemes).
+  2. **`NumericKey`** — characters (all digits, else `InvalidCharacters`) → length
+     (count in `lengths`, else `InvalidLength(got: count)`) → mod-10 on the full
+     length via **F0 `check_digit.valid`** (else `InvalidCheckDigit`) → `Ok(key)`.
+  3. **`BaseSerialKey`** — characters against the union charset (digit OR
+     serial-charset member, else `InvalidCharacters`) → length (total in
+     `[base_total .. base_total + serial_max]`, else `InvalidLength(got: total)`)
+     → mod-10 on the base (first `base_total` digits, else `InvalidCheckDigit`) →
+     structural format: a non-digit within the numeric base region →
+     `InvalidKeyFormat` (reachable only for the alphanumeric-serial GRAI/GDTI).
+  4. **`FreeformKey`** — characters (all alphanumeric) → length (`1..30`) → `Ok`;
+     no check digit and no `InvalidKeyFormat` path.
+  Empty/whitespace-only trims to the empty grapheme list and fails the length rule
+  (`InvalidLength(got: 0)`) — the empty cases in 1.6/3.6 for the SSCC/GSIN
+  specializations. Because each call validates only against the `Gs1Key` passed
+  in, two identical-length codes valid for different kinds are each judged solely
+  against their supplied kind. (Req 6.8)
 
 - **`generate_key`** flow (Req 7.1–7.4):
-  1. `string.trim` the body.
-  2. `parse_body_digits` — non-digit → `InvalidCharacters`, **evaluated before**
-     the body-length check. (Req 7.2)
-  3. `check_length` against the **body** length (`total − 1` for fixed keys, or the
-     `BasePlusSerial`/`VariableLen` body derivation) — mismatch →
-     `InvalidLength(got: n)`. (Req 7.3)
-  4. `check_format` for variable-serial keys → `InvalidKeyFormat` on structural
-     failure. (Req 7.4)
-  5. Append the check digit via **F0 `check_digit.append`** and render the string.
-     (Req 7.1, 9.3)
+  1. `graphemes_of` the body (trim → graphemes).
+  2. **`NumericKey`** — body all digits (else `InvalidCharacters`, **before**
+     length) → body length is one of `[l − 1 for l in lengths]` (else
+     `InvalidLength(got: count)`) → **F0 `check_digit.append`** over the whole
+     body.
+  3. **`BaseSerialKey`** — body = base body (`base_total − 1` digits) + optional
+     serial; union charset first, then body length in `[base_total − 1 ..
+     base_total − 1 + serial_max]`; a non-digit within the base-body region →
+     `InvalidKeyFormat` (GRAI/GDTI). The mod-10 check is appended over the base
+     body, then the serial is concatenated after it.
+  4. **`FreeformKey`** (Giai) — alphanumeric body `1..30` returned verbatim, no
+     check digit. (Req 7.1, 9.3)
 
 - **`validate_sscc`** = `validate_key(Sscc, code)` then map `Ok(Sscc) -> Ok("SSCC")`.
-  A GTIN-14 (14 digits) fails `check_length` for the 18-digit `Sscc` spec →
+  A GTIN-14 (14 digits) fails the length rule for the 18-digit `Sscc` spec →
   `InvalidLength(got: 14)`, never `Ok("SSCC")`. (Req 1.1–1.7)
 - **`validate_gsin`** = `validate_key(Gsin, code)` then map `Ok(Gsin) -> Ok("GSIN")`.
   An 18-digit SSCC fails the 17-digit `Gsin` length check →
@@ -342,16 +419,20 @@ Design notes:
 
 ### `Gs1Key` (new public type)
 
-Defined in `gl_gtin.gleam`, with exactly nine variants `Gtin`, `Gln`, `Sscc`,
-`Gsin`, `Grai`, `Giai`, `Gsrn`, `Gdti`, `Gcn`. Each variant is associated with its
-length and format rules through `gs1_key.key_spec`, so two keys sharing a digit
-length (e.g. `Sscc` and `Gsrn`, both 18) are distinguished by their `Gs1Key` value
-rather than by length alone. (Req 5.1, 5.2)
+Defined in `gl_gtin/gtin_types.gleam` and **re-exported from `gl_gtin`** via
+`pub type Gs1Key = gtin_types.Gs1Key`, with exactly nine variants `Gtin`, `Gln`,
+`Sscc`, `Gsin`, `Grai`, `Giai`, `Gsrn`, `Gdti`, `Gcn` (the variants are owned by
+`gl_gtin/gtin_types`). Each variant is associated with its length and format rules
+through `gs1_key.key_spec`, so two keys sharing a digit length (e.g. `Sscc` and
+`Gsrn`, both 18) are distinguished by their `Gs1Key` value rather than by length
+alone. (Req 5.1, 5.2)
 
-### `KeySpec` / `LengthRule` / `FormatRule` (new, internal to `gs1_key.gleam`)
+### `SerialCharset` / `KeySpec` (new, internal to `gs1_key.gleam`)
 
-As defined in the Key Specification Table section. These are internal
-representations; they are not part of the public API and can evolve freely.
+As defined in the `KeySpec` representation section (`NumericKey` / `BaseSerialKey`
+/ `FreeformKey`, with `SerialCharset` selecting the serial charset). These are
+internal representations; they are not part of the public API and can evolve
+freely.
 
 ### `GtinError` extension (public)
 
@@ -368,10 +449,11 @@ pub type GtinError {
 }
 ```
 
-`InvalidKeyFormat` denotes a variable-serial key (`Grai`/`Giai`) whose length and
-check digit are plausible but whose component structure is malformed. It is used
-only where no existing variant fits (`InvalidFormat` remains reserved for the
-existing GTIN format-conversion failures to avoid overloading its meaning).
+`InvalidKeyFormat` denotes a base-serial key whose union charset and length are
+plausible but whose numeric base region carries a non-digit — reachable only for
+the alphanumeric-serial keys `Grai`/`Gdti`. It is used only where no existing
+variant fits (`InvalidFormat` remains reserved for the existing GTIN
+format-conversion failures to avoid overloading its meaning).
 
 > **Compatibility note.** Adding an enum variant is an **additive** change, so the
 > release remains a **minor** bump per the roadmap. However, downstream callers
@@ -429,9 +511,10 @@ spaces (all 17-digit bodies, all 16-digit bodies, all bodies valid per kind),
 making them PROPERTY-classified. The type-shape criteria (5.1, 5.2) are structural
 (EXAMPLE). The specific rejection criteria (1.7, 3.7) are universal over their
 respective valid code spaces and are captured as properties below. The
-variable-serial format criteria (6.7, 7.4) are EDGE_CASE/EXAMPLE and are covered
-in unit tests rather than as standalone properties, since their exact boundaries
-are open questions.
+base-serial format criteria (6.7, 7.4) are EDGE_CASE/EXAMPLE and are covered in
+unit tests rather than as standalone properties, since the reachable
+`InvalidKeyFormat` trigger (a non-digit inside the numeric base of GRAI/GDTI) is a
+specific structural edge case rather than a universal statement.
 
 ### Property 1: SSCC generate → validate round-trip (F5)
 
@@ -502,8 +585,8 @@ regardless of the string's length.
   generated inputs. F5/F6/F7 are pure, string-first mod-10 transformations over a
   large input space, so PBT is appropriate.
 - **Unit (example) tests** pin the worked examples, the defect-ordering cases, the
-  empty/whitespace cases, the variable-serial `InvalidKeyFormat` cases, and the
-  doc-comment examples.
+  empty/whitespace cases, the base-serial `InvalidKeyFormat` cases (GRAI/GDTI), and
+  the doc-comment examples.
 
 ### Property-based testing library
 
@@ -518,8 +601,9 @@ Generators needed:
 - `gen_sscc_body()` — random 17-digit numeric string (F5).
 - `gen_gsin_body()` — random 16-digit numeric string (F6).
 - `gen_key_body(kind)` — random body of the correct body length for `kind`,
-  respecting `BasePlusSerial`/`VariableLen` for the variable-serial kinds using the
-  assumed boundaries in the Key Specification Table (F7).
+  respecting the `BaseSerialKey`/`FreeformKey` shapes for the base-serial and
+  freeform kinds using the confirmed boundaries in the Key Specification Table
+  (F7).
 
 ### Property test mapping
 
@@ -552,9 +636,11 @@ Each property test is tagged with a comment:
   → check `2`); `validate_key(Gln, "0614141000013") == Error(InvalidCheckDigit)`;
   a same-length pair (`Sscc` vs `Gsrn`) each validated under its own kind;
   non-digit → `Error(InvalidCharacters)`; wrong length →
-  `Error(InvalidLength(got: n))`; a `Grai`/`Giai` body that meets length but
-  violates the assumed structural rule → `Error(InvalidKeyFormat)` (marked pending
-  GS1 confirmation); `generate_key(Sscc, body)` equals `generate_sscc(body)`.
+  `Error(InvalidLength(got: n))`; a `Grai`/`Gdti` code that passes the union
+  charset and length but carries a letter inside the 13-digit numeric base →
+  `Error(InvalidKeyFormat)` (the reachable structural case), while GCN's
+  digits-only serial makes a letter an `InvalidCharacters` instead;
+  `generate_key(Sscc, body)` equals `generate_sscc(body)`.
 
 ### Doc-comment example tests (Requirement 8.8)
 
@@ -579,10 +665,10 @@ engine so the example output strings are exact.
 | 2 (generate SSCC) | `generate_sscc` = `generate_key(Sscc, _)` via `check_digit.append`; Property 1 |
 | 3 (validate GSIN) | `validate_gsin` = `validate_key(Gsin, _)`→`"GSIN"`; SSCC rejected by length; Properties 2, 6, 7, 8 |
 | 4 (generate GSIN) | `generate_gsin` = `generate_key(Gsin, _)`; Property 2 |
-| 5 (Gs1Key type) | public `Gs1Key` (9 variants) in facade; `key_spec` table associates length/format; Properties 3, 4 |
-| 6 (validate_key) | generic validator, defect ordering char→len→check→format, `Ok(key)`, `InvalidKeyFormat` for Grai/Giai; worked example `Gln`; Properties 3, 4, 7, 8 |
+| 5 (Gs1Key type) | public `Gs1Key` (9 variants) defined in `gl_gtin/gtin_types`, re-exported from the facade; `key_spec` table associates length/format; Properties 3, 4 |
+| 6 (validate_key) | generic validator, defect ordering char→len→check→format, `Ok(key)`, `InvalidKeyFormat` reachable for Grai/Gdti; worked example `Gln`; Properties 3, 4, 7, 8 |
 | 7 (generate_key) | generic generator, char-before-length, `InvalidKeyFormat`, append check digit; Property 3, 8 |
 | 8 (quality) | additive facade wrappers, `Result(_, GtinError)`, new `InvalidKeyFormat` variant, totality, opaque `Gtin` untouched, string-first, per-feature + doc-example tests, CHANGELOG, format check |
 | 9 (F0 prerequisite) | consumes `check_digit.calculate`/`valid`/`append`; no second mod-10 impl; prefers `valid`/`append`; F0 out of scope |
-| 10 (assumptions) | Key Specification Table: one flagged entry per variant, SSCC/GSRN/GSIN/GLN lengths open, Grai/Giai variable-serial, Gdti/Gcn base+serial, GS1 General Specifications cited as reference material |
+| 10 (assumptions) | Key Specification Table: one confirmed entry per variant (all nine confirmed in task 1.1), Grai/Gdti base+alphanumeric serial, Gcn base+numeric serial, Giai 1..30 alphanumeric, GS1 General Specifications cited as reference material |
 ```

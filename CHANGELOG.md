@@ -37,6 +37,14 @@ consideration for downstream callers — see the compatibility note below.
     `gl_gtin.Gs1Key`, but its variant constructors are defined in and imported
     from `gl_gtin/gtin_types`, e.g. `import gl_gtin/gtin_types.{Sscc, Gsin}`.
     This mirrors the `GtinError`/`GtinFormat` convention introduced in [3.1.0].
+  - `validate_key`/`generate_key` cover all nine kinds, including the
+    variable-serial keys with a numeric base plus an optional typed serial: `Grai`
+    (13-digit base + serial up to 16 alphanumeric), `Gdti` (13-digit base + serial
+    up to 17 alphanumeric), `Gcn` (13-digit base + serial up to 12 numeric), and
+    `Giai` (1–30 alphanumeric, no key-level check digit). The mod-10 check applies
+    to the 13-digit base for the base-plus-serial keys; `InvalidKeyFormat` is
+    returned when a base-plus-serial key's numeric base region contains a
+    non-digit character.
 
 ### Changed
 
