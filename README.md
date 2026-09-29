@@ -17,6 +17,7 @@ A production-ready Gleam library for validating and generating GTIN (Global Trad
 - **GTIN-14 Down-Conversion**: Reduce an indicator-0 GTIN-14 back to its base GTIN-13 or GTIN-12
 - **UPC-E ⇄ UPC-A Conversion**: Expand a compressed 8-digit UPC-E to 12-digit UPC-A and compress back again
 - **Structured Parsing**: Decompose a GTIN into its format, digits, indicator, GS1 prefix/region, and check digit
+- **GS1 Identification Keys**: Validate and generate SSCC, GSIN, and other GS1 keys (GLN, GRAI, GIAI, GSRN, GDTI, GCN) via a shared `Gs1Key`-parameterized API
 - **Type-Safe API**: Leverage Gleam's strong type system to prevent invalid GTINs
 - **Comprehensive Error Handling**: Specific error types for different failure modes
 - **Well-Documented**: Extensive documentation with practical examples for all functions
@@ -81,6 +82,33 @@ pub fn main() {
   case gl_gtin.normalize("6291041500213") {
     Ok(gtin14) -> io.println("GTIN-14: " <> gtin14)
     Error(err) -> io.println("Error: " <> error_to_string(err))
+  }
+}
+```
+
+### Validating and Generating GS1 Keys
+
+```gleam
+import gl_gtin
+import gl_gtin/gtin_types.{Sscc}
+
+pub fn main() {
+  // Validate an 18-digit SSCC
+  case gl_gtin.validate_sscc("106141415432109873") {
+    Ok(kind) -> io.println("Valid key: " <> kind)
+    Error(err) -> io.println("Invalid SSCC: " <> error_to_string(err))
+  }
+
+  // Generate an SSCC from a 17-digit body
+  case gl_gtin.generate_sscc("10614141543210987") {
+    Ok(sscc) -> io.println("Generated SSCC: " <> sscc)
+    Error(err) -> io.println("Error: " <> error_to_string(err))
+  }
+
+  // Validate against a specific Gs1Key kind
+  case gl_gtin.validate_key(Sscc, "106141415432109873") {
+    Ok(_key) -> io.println("Valid SSCC key")
+    Error(err) -> io.println("Invalid key: " <> error_to_string(err))
   }
 }
 ```
@@ -156,6 +184,17 @@ pub fn validate_and_lookup(code: String) -> Result(String, GtinError) {
 ### Parsing
 
 - `parse(code: String) -> Result(GtinInfo, GtinError)` - Decompose a validated GTIN into a structured `GtinInfo` record
+
+### GS1 Identification Keys (SSCC, GSIN, generic)
+
+- `validate_sscc(code: String) -> Result(String, GtinError)` - Validate an 18-digit SSCC; returns `Ok("SSCC")` on success
+- `generate_sscc(body: String) -> Result(String, GtinError)` - Append the mod-10 check digit to a 17-digit body to produce an 18-digit SSCC
+- `validate_gsin(code: String) -> Result(String, GtinError)` - Validate a 17-digit GSIN; returns `Ok("GSIN")` on success
+- `generate_gsin(body: String) -> Result(String, GtinError)` - Append the mod-10 check digit to a 16-digit body to produce a 17-digit GSIN
+- `validate_key(key: Gs1Key, code: String) -> Result(Gs1Key, GtinError)` - Validate a code against a specified `Gs1Key` kind
+- `generate_key(key: Gs1Key, body: String) -> Result(String, GtinError)` - Generate a complete key of a specified `Gs1Key` kind from a body
+
+The `Gs1Key` variants (`Gtin`, `Gln`, `Sscc`, `Gsin`, `Grai`, `Giai`, `Gsrn`, `Gdti`, `Gcn`) are imported from `gl_gtin/gtin_types`, e.g. `import gl_gtin/gtin_types.{Sscc, Gsin, Grai}`. Base-plus-serial keys (GRAI, GDTI, GCN) accept an optional serial after the numeric base, GIAI is freeform alphanumeric with no check digit, and a structurally malformed key returns `InvalidKeyFormat`.
 
 ### Opaque Gtin Type
 
