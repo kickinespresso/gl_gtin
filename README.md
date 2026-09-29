@@ -10,9 +10,13 @@ A production-ready Gleam library for validating and generating GTIN (Global Trad
 ## Features
 
 - **GTIN Validation**: Validate GTIN-8, GTIN-12, GTIN-13, and GTIN-14 codes
+- **Batch Validation**: Validate a list of codes at once and partition them into valid/invalid groups
 - **Check Digit Generation**: Generate complete GTINs with calculated check digits using the GS1 Modulo 10 algorithm
 - **GS1 Country/Region Prefix Lookup**: Identify the country or region of origin using GS1's real 3-digit allocation ranges (a broad set of countries and regions, plus ISBN/ISSN and restricted-circulation/coupon ranges)
-- **GTIN Normalization**: Convert GTIN-13 codes to GTIN-14 format for logistics applications
+- **GTIN Normalization**: Convert GTIN-13 codes to GTIN-14 format for logistics applications, with a configurable indicator digit
+- **GTIN-14 Down-Conversion**: Reduce an indicator-0 GTIN-14 back to its base GTIN-13 or GTIN-12
+- **UPC-E ⇄ UPC-A Conversion**: Expand a compressed 8-digit UPC-E to 12-digit UPC-A and compress back again
+- **Structured Parsing**: Decompose a GTIN into its format, digits, indicator, GS1 prefix/region, and check digit
 - **Type-Safe API**: Leverage Gleam's strong type system to prevent invalid GTINs
 - **Comprehensive Error Handling**: Specific error types for different failure modes
 - **Well-Documented**: Extensive documentation with practical examples for all functions
@@ -108,6 +112,7 @@ pub type GtinError {
   InvalidCharacters
   NoGs1PrefixFound
   InvalidFormat
+  InvalidKeyFormat
 }
 ```
 
@@ -125,15 +130,55 @@ pub fn validate_and_lookup(code: String) -> Result(String, GtinError) {
 
 ## API Overview
 
-### Main Functions
+### Validation
 
 - `validate(code: String) -> Result(GtinFormat, GtinError)` - Validate a GTIN code
+- `validate_all(codes: List(String)) -> List(#(String, Result(GtinFormat, GtinError)))` - Validate a batch, pairing each original input with its result
+- `partition(codes: List(String)) -> #(List(String), List(String))` - Split a batch into `#(valid, invalid)` groups
+
+### Generation
+
 - `generate(code: String) -> Result(String, GtinError)` - Generate a complete GTIN with check digit
-- `gs1_prefix_country(code: String) -> Result(String, GtinError)` - Look up the country from a GTIN
-- `normalize(code: String) -> Result(String, GtinError)` - Convert GTIN-13 to GTIN-14
+
+### Prefix Lookup
+
+- `gs1_prefix_country(code: String) -> Result(String, GtinError)` - Look up the country/region from a GTIN
+
+### Normalization and Conversion
+
+- `normalize(code: String) -> Result(String, GtinError)` - Convert GTIN-13 to GTIN-14 (indicator digit 1)
+- `normalize_with_indicator(code: String, indicator: Int) -> Result(String, GtinError)` - Convert GTIN-13 to GTIN-14 with a caller-supplied indicator (0–9)
+- `to_gtin13(code: String) -> Result(String, GtinError)` - Reduce an indicator-0 GTIN-14 to its base GTIN-13
+- `to_gtin12(code: String) -> Result(String, GtinError)` - Reduce an indicator-0 GTIN-14 to its base GTIN-12 (UPC-A)
+- `upce_to_upca(code: String) -> Result(String, GtinError)` - Expand an 8-digit UPC-E to 12-digit UPC-A
+- `upca_to_upce(code: String) -> Result(String, GtinError)` - Compress a 12-digit UPC-A to 8-digit UPC-E
+
+### Parsing
+
+- `parse(code: String) -> Result(GtinInfo, GtinError)` - Decompose a validated GTIN into a structured `GtinInfo` record
+
+### Opaque Gtin Type
+
 - `from_string(code: String) -> Result(Gtin, GtinError)` - Create an opaque Gtin type
 - `to_string(gtin: Gtin) -> String` - Extract the string value from a Gtin
 - `format(gtin: Gtin) -> GtinFormat` - Get the format of a Gtin
+
+### Structured Parse Output
+
+`parse/1` returns a `GtinInfo` record:
+
+```gleam
+pub type GtinInfo {
+  GtinInfo(
+    format: GtinFormat,
+    digits: String,
+    indicator: Result(Int, Nil),
+    gs1_prefix: String,
+    gs1_region: Result(String, GtinError),
+    check_digit: Int,
+  )
+}
+```
 
 ## Documentation
 
@@ -178,11 +223,15 @@ gleam format
 ```text
 gl_gtin/
 ├── src/
-│   ├── gl_gtin.gleam           # Main public API
+│   ├── gl_gtin.gleam           # Main public API (facade)
 │   ├── gl_gtin/
-│   │   ├── validation.gleam    # Core validation logic
-│   │   ├── check_digit.gleam   # Check digit calculation
-│   │   ├── gs1_prefix.gleam    # GS1 country prefix lookup
+│   │   ├── gtin_types.gleam    # Shared public types (GtinFormat, GtinError)
+│   │   ├── validation.gleam    # Core validation and normalization logic
+│   │   ├── check_digit.gleam   # Check digit calculation engine
+│   │   ├── gs1_prefix.gleam    # GS1 country/region prefix lookup
+│   │   ├── gs1_key.gleam       # GS1 identification key support (internal)
+│   │   ├── upc.gleam           # UPC-E ⇄ UPC-A conversion
+│   │   ├── parse.gleam         # Structured GTIN parsing (GtinInfo)
 │   │   └── internal/
 │   │       └── utils.gleam     # Internal utility functions
 └── test/
@@ -191,6 +240,9 @@ gl_gtin/
         ├── validation_test.gleam
         ├── check_digit_test.gleam
         ├── gs1_prefix_test.gleam
+        ├── upc_test.gleam
+        ├── parse_test.gleam
+        ├── batch_helpers_test.gleam
         └── internal/
             └── utils_test.gleam
 ```
@@ -232,3 +284,9 @@ Please refer to the [Code of Conduct](CODE_OF_CONDUCT.md) for details
 ## Security
 
 Please refer to the [Security](SECURITY.md) for details
+
+## Publish Package
+
+```shell
+gleam publish
+```
